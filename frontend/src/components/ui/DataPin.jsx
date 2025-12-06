@@ -7,7 +7,7 @@ const DataPin = ({ label, active, onClick }) => (
       w-10 h-10 rounded border flex items-center justify-center font-mono text-sm cursor-pointer select-none
       
       /* ANIMATION: Smooth 200ms speed */
-      transition-all duration-200 ease-out
+      transition-all duration-75 ease-out
       
       /* HOVER: Scale up regardless of state */
       hover:scale-110

@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+// --- NEW: IMPORT THE CUSTOM HOOK ---
+import { useLcdSim } from '../../utils/useLcdSim';
 
 // Import all Layout/Display Components (They are now 'Dumb' presenters)
 import GpioPanel from './GpioPanel';
@@ -14,138 +17,34 @@ import NeonButton from '../ui/NeonButton';
 import NeonDropdown from '../ui/NeonDropdown';
 import PulseButton from '../ui/PulseButton';
 
-// Helper to convert hex string to integer, needed for sendCommand
-const hexStringToInt = (hexStr) => parseInt(hexStr.replace('0x', ''), 16);
-
-// ------------------------------------------
-// CORE LOGIC: FUNCTION SET COMMAND CALCULATION
-// ------------------------------------------
-const getFunctionSetCommand = (width, lines) => {
-  // Logic based on combining the setting bits (F, N, DL bits)
-  const is2Line = lines.includes('2 Lines');
-  const is8Bit = width.includes('8-Bit');
-
-  if (is8Bit && is2Line) return '0x38'; // 8-bit, 2 Line
-  if (is8Bit && !is2Line) return '0x30'; // 8-bit, 1 Line
-  if (!is8Bit && is2Line) return '0x28'; // 4-bit, 2 Line
-  if (!is8Bit && !is2Line) return '0x20'; // 4-bit, 1 Line
-
-  return '0x??'; // Fallback
-};
-
+// NOTE: All prior logic functions (hexStringToInt, getFunctionSetCommand) are now inside useLcdSim.js
 
 const LcdController = () => {
-  // --- STATE ---
-  const [logs, setLogs] = useState(["> Initializing LCD...", "> Mode set to 4-Bit.", "> Backlight turned ON."]);
-  const [gpio, setGpio] = useState({ rs: true, rw: false });
-  const [enState, setEnState] = useState(false);
-  const [dataBus, setDataBus] = useState([0, 0, 0, 0, 1, 1, 0, 0]);
-  const [inputValue, setInputValue] = useState("");
-  const [inputFormat, setInputFormat] = useState("Hex");
-  const [backlight, setBacklight] = useState("ON");
-  const [lcdRows, setLcdRows] = useState({
-     row1: Array(16).fill(32),
-     row2: Array(16).fill(32)
-  });
 
-  // NEW: STATES FOR CONFIGURATION
-  const [busWidth, setBusWidth] = useState('4-Bit Mode');
-  const [lineCount, setLineCount] = useState('2 Lines (16x2)');
-  const [entryMode, setEntryMode] = useState('Left to Right (Inc)');
-  const [displayVisible, setDisplayVisible] = useState('Display OFF');
-  const [cursorStyle, setCursorStyle] = useState('Hidden');
+  // --- 1. USE CUSTOM HOOK TO GET ALL STATE AND HANDLERS ---
+  const {
+    state,
+    handlers,
+    setters,
+  } = useLcdSim();
 
-  // --- LOGIC ---
-  const addLog = (msg) => setLogs(prev => [...prev.slice(-4), `> ${msg}`]);
+  // Destructure for cleaner access in JSX
+  const {
+    logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
+    busWidth, lineCount, entryMode, displayVisible, cursorStyle
+  } = state;
 
-  const toggleDataBit = (index) => {
-    const newBus = [...dataBus];
-    newBus[index] = newBus[index] === 1 ? 0 : 1;
-    setDataBus(newBus);
-  };
+  const {
+    handleManualEn, handleEnPulse, handleBacklightChange, handleSend, sendCommand,
+    toggleDataBit, handleCellClick, handleConfigChange
+  } = handlers;
 
-  const handleManualEn = () => {
-    const newState = !enState;
-    setEnState(newState);
-    addLog(`EN Line set to ${newState ? 'HIGH' : 'LOW'}`);
-  };
-
-  const handleEnPulse = () => {
-    setEnState(true);
-    addLog("Pulse: EN (High -> Low)");
-    setTimeout(() => { setEnState(false); }, 200);
-  };
-
-  const handleBacklightChange = (newStatus) => {
-    setBacklight(newStatus);
-    addLog(`Backlight turned ${newStatus}`);
-  };
-
-  const handleSend = () => {
-    if(!inputValue) return;
-    addLog(`Sending ${inputFormat}: '${inputValue}'...`);
-    setInputValue("");
-  };
-
-  const sendCommand = async (hexCode) => {
-    // If input is already a hex string, convert to integer first
-    const hexVal = typeof hexCode === 'string' ? hexStringToInt(hexCode) : hexCode;
-    const hexStr = '0x' + hexVal.toString(16).toUpperCase().padStart(2,'0');
-    addLog(`Sending Command: ${hexStr}`);
-  };
-
-  // HANDLER FOR CLICKING A CELL (Set DDRAM Address command)
-  const handleCellClick = (row, col) => {
-    // Base Command: 0x80 (Set DDRAM Address)
-    // Row 0 address: 0x00 to 0x0F
-    // Row 1 address: 0x40 to 0x4F
-    const rowOffset = row === 0 ? 0x00 : 0x40;
-
-    // Calculate the final command address (0x80 | row offset | column)
-    const ddramAddress = 0x80 | rowOffset | col;
-
-    // Format to hexadecimal string (e.g., 0x80 to 0x8F, 0xC0 to 0xCF)
-    const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
-
-    addLog(`Cursor set to: R${row}, C${col}`);
-    sendCommand(hexCommand);
-  };
+  const {
+    setGpio, setInputFormat, setInputValue
+  } = setters;
 
 
-// MODIFIED: UNIFIED HOMOGENEOUS HANDLER FOR STATEPANEL CHANGES
-const handleConfigChange = ({ newConfig, changedProp, commands }) => {
-    // 1. Update all component states first
-    setBusWidth(newConfig.busWidth);
-    setLineCount(newConfig.lineCount);
-    setEntryMode(newConfig.entryMode);
-    setDisplayVisible(newConfig.displayVisible);
-    setCursorStyle(newConfig.cursorStyle);
-
-    let commandToSend = undefined;
-
-    // --- HOMOGENEOUS COMMAND LOGIC ---
-    if (changedProp === 'busWidth' || changedProp === 'lineCount') {
-        // 1. Send the calculated Function Set command
-        commandToSend = getFunctionSetCommand(newConfig.busWidth, newConfig.lineCount);
-        addLog(`Function Set determined by: ${newConfig.busWidth} + ${newConfig.lineCount}`);
-        sendCommand(commandToSend);
-    } else if (commands && commands.length > 0) {
-        // 2. Handle single command or constraint sequence
-        commands.forEach(cmd => {
-            sendCommand(cmd);
-        });
-    }
-};
-
-
-  const getPlaceholder = () => {
-    if (inputFormat === "Hex") return "e.g. 0x4A";
-    if (inputFormat === "Decimal") return "e.g. 65";
-    if (inputFormat === "Binary") return "e.g. 00011000";
-    return "e.g. A";
-  };
-
-  // --- DYNAMIC THEME CALCULATIONS ---
+  // --- DYNAMIC THEME CALCULATIONS (Using state values from the hook) ---
   const isDataMode = gpio.rs;
   const borderColor = isDataMode ? "border-cyan-500/30" : "border-yellow-500/30";
   const titleColor  = isDataMode ? "text-cyan-400" : "text-yellow-500";
@@ -161,7 +60,12 @@ const handleConfigChange = ({ newConfig, changedProp, commands }) => {
        <div className="bg-slate-900 border border-cyan-500/30 rounded flex items-center px-3 py-2 w-full">
           <input
             className="bg-transparent border-none text-cyan-300 w-full focus:outline-none font-mono"
-            placeholder={getPlaceholder()}
+            placeholder={
+              inputFormat === "Hex" ? "e.g. 0x4A" :
+              inputFormat === "Decimal" ? "e.g. 65" :
+              inputFormat === "Binary" ? "e.g. 00011000" :
+              "e.g. A"
+            }
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
@@ -188,7 +92,8 @@ const handleConfigChange = ({ newConfig, changedProp, commands }) => {
     </div>
   );
 
-  // START OF THE STRUCTURAL FIX
+
+  // --- START OF STRUCTURAL RENDER ---
   return (
     // Outer Container: Max width for the whole simulator panel, consumes full height.
     <div className="max-w-6xl w-full h-full">

@@ -7,7 +7,7 @@ const PulseButton = ({ label, onClick, isActive }) => {
       onClick={onClick}
       className={`
         w-10 h-10 rounded border flex items-center justify-center font-bold text-xs cursor-pointer select-none
-        transition-all duration-100 ease-out
+        transition-all duration-75 ease-out
         
         ${isActive 
           // HIGH STATE (Active Pulse): Bright glowing yellow, pressed in

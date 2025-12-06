@@ -27,7 +27,7 @@ const Cell = ({ char, onCellClick, row, col }) => {
             // Base styling for the cell container (adjust padding to control size)
             flex flex-col gap-[1px]
             cursor-pointer 
-            transition-transform duration-150 ease-out
+            transition-transform duration-75 ease-out
             // Hover styling for scaling up
             ${isHovered ? 'scale-[1.1] bg-slate-800 rounded-sm' : 'scale-100'}
         `}
