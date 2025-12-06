@@ -18,8 +18,17 @@ const MountingHole = ({ position }) => (
 );
 
 // --- 2. Main LcdScreen Component ---
-// ADDED prop: onCellClick
-const LcdScreen = ({ row1Data, row2Data, backlight, onCellClick }) => {
+// ✅ UPDATED PROPS: Added cursorRow, cursorCol, and cursorStyle
+const LcdScreen = ({
+    row1Data,
+    row2Data,
+    backlight,
+    onCellClick,
+    cursorRow,
+    cursorCol,
+    cursorStyle,
+    isBlinkingPhase
+}) => {
   const r1 = row1Data && row1Data.length === 16 ? row1Data : Array(16).fill(32);
   const r2 = row2Data && row2Data.length === 16 ? row2Data : Array(16).fill(32);
 
@@ -93,7 +102,11 @@ const LcdScreen = ({ row1Data, row2Data, backlight, onCellClick }) => {
                         char={String.fromCharCode(code)}
                         row={0} // Row index 0
                         col={i} // Column index 0-15
-                        onCellClick={onCellClick} // Pass the handler down
+                        onCellClick={onCellClick}
+                        // ✅ PROPS PASSED TO CELL
+                        isActiveCursor={cursorRow === 0 && cursorCol === i}
+                        cursorStyle={cursorStyle}
+                        isBlinkingPhase={isBlinkingPhase}
                     />
                 ))}
             </div>
@@ -106,7 +119,10 @@ const LcdScreen = ({ row1Data, row2Data, backlight, onCellClick }) => {
                         char={String.fromCharCode(code)}
                         row={1} // Row index 1
                         col={i} // Column index 0-15
-                        onCellClick={onCellClick} // Pass the handler down
+                        onCellClick={onCellClick}
+                        // ✅ PROPS PASSED TO CELL
+                        isActiveCursor={cursorRow === 1 && cursorCol === i}
+                        cursorStyle={cursorStyle}
                     />
                 ))}
             </div>

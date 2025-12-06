@@ -31,7 +31,9 @@ const LcdController = () => {
   // Destructure for cleaner access in JSX
   const {
     logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
-    busWidth, lineCount, entryMode, displayVisible, cursorStyle
+    busWidth, lineCount, entryMode, displayVisible, cursorStyle,
+    // ✅ NEW: Cursor position state pulled from the hook
+    cursorRow, cursorCol, isCursorVisibleInCycle
   } = state;
 
   const {
@@ -109,7 +111,7 @@ const LcdController = () => {
                     enState={enState}
                     onManualEn={handleManualEn}
                     backlight={backlight}
-                    setBacklight={setBacklight} // Passed setter from the hook
+                    setBacklight={handleBacklightChange}
                 />
             </div>
 
@@ -121,6 +123,12 @@ const LcdController = () => {
                         row2Data={lcdRows.row2}
                         backlight={backlight}
                         onCellClick={handleCellClick}
+
+                        // ✅ PROPS PASSED TO LCD SCREEN FOR CURSOR RENDERING
+                        cursorRow={cursorRow}
+                        cursorCol={cursorCol}
+                        cursorStyle={cursorStyle}
+                        isBlinkingPhase={isCursorVisibleInCycle}
                     />
                 </div>
 

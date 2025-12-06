@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // <-- Import useEffect
 
 // NOTE: Assuming LcdCommands and other necessary utilities are available in the scope
 // If you need to access specific constants (like CURSOR_HIDDEN_HEX), you must import them.
@@ -23,7 +23,7 @@ const getFunctionSetCommand = (width, lines) => {
 // This is your new Custom Hook
 export const useLcdSim = () => {
 
-  // --- STATE (Moved from LcdController) ---
+  // --- STATE ---
   const [logs, setLogs] = useState(["> Initializing LCD...", "> Mode set to 4-Bit.", "> Backlight turned ON."]);
   const [gpio, setGpio] = useState({ rs: true, rw: false });
   const [enState, setEnState] = useState(false);
@@ -42,9 +42,32 @@ export const useLcdSim = () => {
   const [entryMode, setEntryMode] = useState('Left to Right (Inc)');
   const [displayVisible, setDisplayVisible] = useState('Display OFF');
   const [cursorStyle, setCursorStyle] = useState('Hidden');
+  const [cursorRow, setCursorRow] = useState(0);
+  const [cursorCol, setCursorCol] = useState(0);
+
+  // ✅ NEW: Global state to control blinking phase (for synchronous blink)
+  const [isCursorVisibleInCycle, setIsCursorVisibleInCycle] = useState(true);
+
+  // --- EFFECT HOOK FOR SYNCHRONOUS BLINKING ---
+  useEffect(() => {
+    // Only run the timer if the cursor style is set to Blinking Block
+    if (cursorStyle === 'Blinking Block') {
+        const interval = setInterval(() => {
+            // Flip the state every 500ms for a synchronous blink across the whole app
+            setIsCursorVisibleInCycle(prev => !prev);
+        }, 500);
+
+        // Cleanup function to stop the timer when the component unmounts
+        // or cursorStyle changes away from Blinking Block.
+        return () => clearInterval(interval);
+    } else {
+        // Ensure the cursor is always visible (not blinking) when the style isn't 'Blinking Block'
+        setIsCursorVisibleInCycle(true);
+    }
+  }, [cursorStyle]); // Only re-run if the desired cursor style changes
+
 
   // --- UTILITY HANDLERS ---
-
   const addLog = (msg) => setLogs(prev => [...prev.slice(-4), `> ${msg}`]);
 
   const sendCommand = (hexCode) => {
@@ -54,7 +77,7 @@ export const useLcdSim = () => {
     addLog(`Sending Command: ${hexStr}`);
   };
 
-  // --- INTERACTION HANDLERS (Needed by GpioPanel, DataPin, PulseButton, Data Input) ---
+  // --- INTERACTION HANDLERS ---
 
   // HANDLER: Toggle Data Pin (used by DataPin buttons)
   const toggleDataBit = (index) => {
@@ -96,10 +119,62 @@ export const useLcdSim = () => {
     const ddramAddress = 0x80 | rowOffset | col;
     const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
 
+    setCursorRow(row);
+    setCursorCol(col);
+
     addLog(`Cursor set to: R${row}, C${col}`);
     sendCommand(hexCommand);
   };
 
+  // HANDLER: Move Cursor Right (simulates the 0x14 command visually)
+  const moveCursorRight = () => {
+    let newCol = cursorCol;
+    let newRow = cursorRow;
+
+    if (cursorCol < 15) {
+        newCol = cursorCol + 1;
+    } else if (cursorCol === 15 && cursorRow === 0) {
+        newRow = 1;
+        newCol = 0;
+    } else if (cursorCol === 15 && cursorRow === 1) {
+        return;
+    }
+
+    setCursorRow(newRow);
+    setCursorCol(newCol);
+
+    const rowOffset = newRow === 0 ? 0x00 : 0x40;
+    const ddramAddress = 0x80 | rowOffset | newCol;
+    const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
+
+    addLog("Action: Cursor Move Right");
+    sendCommand(hexCommand);
+  };
+
+  // HANDLER: Move Cursor Left (simulates the 0x10 command visually)
+  const moveCursorLeft = () => {
+    let newCol = cursorCol;
+    let newRow = cursorRow;
+
+    if (cursorCol > 0) {
+        newCol = cursorCol - 1;
+    } else if (cursorCol === 0 && cursorRow === 1) {
+        newRow = 0;
+        newCol = 15;
+    } else if (cursorCol === 0 && cursorRow === 0) {
+        return;
+    }
+
+    setCursorRow(newRow);
+    setCursorCol(newCol);
+
+    const rowOffset = newRow === 0 ? 0x00 : 0x40;
+    const ddramAddress = 0x80 | rowOffset | newCol;
+    const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
+
+    addLog("Action: Cursor Move Left");
+    sendCommand(hexCommand);
+  };
 
   // THE MAIN CONFIGURATION HANDLER (Used by StatePanel)
   const handleConfigChange = ({ newConfig, changedProp, commands }) => {
@@ -127,16 +202,19 @@ export const useLcdSim = () => {
     // Current State values (Data for rendering)
     state: {
       logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
-      busWidth, lineCount, entryMode, displayVisible, cursorStyle
+      busWidth, lineCount, entryMode, displayVisible, cursorStyle,
+      cursorRow, cursorCol,
+      isCursorVisibleInCycle // ✅ EXPOSED STATE FOR SYNCHRONOUS BLINKING
     },
     // Setters (Data for modifying state/input)
     setters: {
-      setGpio, setInputFormat, setInputValue, setBacklight, // setBacklight was missing
+      setGpio, setInputFormat, setInputValue, setBacklight,
     },
     // Handler functions (Logic/Actions)
     handlers: {
       addLog, sendCommand, handleConfigChange, handleCellClick,
-      toggleDataBit, handleManualEn, handleEnPulse, handleBacklightChange, handleSend
+      toggleDataBit, handleManualEn, handleEnPulse, handleBacklightChange, handleSend,
+      moveCursorLeft, moveCursorRight
     },
     // Utility for the Command Logic
     utils: {
