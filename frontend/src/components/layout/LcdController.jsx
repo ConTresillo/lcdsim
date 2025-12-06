@@ -94,6 +94,23 @@ const LcdController = () => {
     addLog(`Sending Command: ${hexStr}`);
   };
 
+  // HANDLER FOR CLICKING A CELL (Set DDRAM Address command)
+  const handleCellClick = (row, col) => {
+    // Base Command: 0x80 (Set DDRAM Address)
+    // Row 0 address: 0x00 to 0x0F
+    // Row 1 address: 0x40 to 0x4F
+    const rowOffset = row === 0 ? 0x00 : 0x40;
+
+    // Calculate the final command address (0x80 | row offset | column)
+    const ddramAddress = 0x80 | rowOffset | col;
+
+    // Format to hexadecimal string (e.g., 0x80 to 0x8F, 0xC0 to 0xCF)
+    const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
+
+    addLog(`Cursor set to: R${row}, C${col}`);
+    sendCommand(hexCommand);
+  };
+
 
 // MODIFIED: UNIFIED HOMOGENEOUS HANDLER FOR STATEPANEL CHANGES
 const handleConfigChange = ({ newConfig, changedProp, commands }) => {
@@ -171,119 +188,123 @@ const handleConfigChange = ({ newConfig, changedProp, commands }) => {
     </div>
   );
 
-
+  // START OF THE STRUCTURAL FIX
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-6xl w-full">
+    // Outer Container: Max width for the whole simulator panel, consumes full height.
+    <div className="max-w-6xl w-full h-full">
 
-        {/* LEFT COLUMN */}
-        <div className="lg:col-span-3 min-w-0">
-            <GpioPanel
-                gpio={gpio}
-                setGpio={setGpio}
-                enState={enState}
-                onManualEn={handleManualEn}
-                backlight={backlight}
-                setBacklight={handleBacklightChange}
-            />
-        </div>
+        {/* Main Grid: Takes available width and manages content flow for the columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full h-full">
 
-        {/* CENTER COLUMN */}
-        <div className="lg:col-span-6 flex flex-col gap-6 items-center min-w-0">
-            <div className="w-full flex justify-center transition-all duration-500">
-                <LcdScreen
-                    row1Data={lcdRows.row1}
-                    row2Data={lcdRows.row2}
+            {/* LEFT COLUMN: Fixed content height relative to container. Scrollable if content overflows. */}
+            <div className="lg:col-span-3 min-w-0 flex flex-col h-full overflow-y-auto">
+                <GpioPanel
+                    gpio={gpio}
+                    setGpio={setGpio}
+                    enState={enState}
+                    onManualEn={handleManualEn}
                     backlight={backlight}
+                    setBacklight={handleBacklightChange}
                 />
             </div>
 
-            <div className="flex gap-2 justify-center flex-wrap w-full items-center">
-                {[7, 6, 5, 4, 3, 2, 1, 0].map((bitIndex) => (
-                    <DataPin
-                        key={bitIndex}
-                        label={`D${bitIndex}`}
-                        active={dataBus[bitIndex] === 1}
-                        onClick={() => toggleDataBit(bitIndex)}
+            {/* CENTER COLUMN: Allow internal vertical scroll for logs/terminal. */}
+            <div className="lg:col-span-6 flex flex-col gap-6 items-center min-w-0 h-full overflow-y-auto">
+                <div className="w-full flex justify-center transition-all duration-500 flex-shrink-0">
+                    <LcdScreen
+                        row1Data={lcdRows.row1}
+                        row2Data={lcdRows.row2}
+                        backlight={backlight}
+                        onCellClick={handleCellClick}
                     />
-                ))}
-                <div className="w-2"></div>
-                <PulseButton
-                    label="EN"
-                    isActive={enState}
-                    onClick={handleEnPulse}
-                />
-            </div>
-
-            <Terminal logs={logs}/>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative">
-
-            {/* UNIFIED REGISTER PANEL */}
-            <div className={`
-              bg-white/5 backdrop-blur-md border rounded-xl p-6 w-full relative z-30
-              min-h-[16rem] 
-              flex flex-col
-              transition-colors duration-500 ease-in-out
-              ${borderColor}
-           `}>
-
-                {/* Header (Animates Color) */}
-                <div
-                    className={`flex justify-between items-center mb-4 border-b pb-2 transition-colors duration-500 ${borderColor}`}>
-                    <label
-                        className={`text-xs font-bold tracking-widest transition-colors duration-500 ${titleColor}`}>
-                        {labelText}
-                    </label>
-                    <span className={`text-[10px] font-mono transition-colors duration-500 ${subTextColor}`}>
-                  {statusText}
-                </span>
                 </div>
 
-                {/* Dynamic Body Content - Framer Motion for Smooth Swap */}
-                <div className="flex-1 flex flex-col justify-center overflow-hidden">
-                    <AnimatePresence mode="wait" initial={false}>
-                        {isDataMode ? (
-                            <motion.div
-                                key="data"
-                                layout
-                                initial={{opacity: 0, y: 10}}
-                                animate={{opacity: 1, y: 0}}
-                                exit={{opacity: 0, y: -10}}
-                                transition={{duration: 0.3}}
-                                className="w-full"
-                            >
-                                {DataInputUI}
-                            </motion.div>
-                        ) : (
-                            <motion.div
-                                key="command"
-                                layout
-                                initial={{opacity: 0, y: 10}}
-                                animate={{opacity: 1, y: 0}}
-                                exit={{opacity: 0, y: -10}}
-                                transition={{duration: 0.3}}
-                                className="w-full"
-                            >
-                                {CommandInputUI}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                <div className="flex gap-2 justify-center flex-wrap w-full items-center flex-shrink-0">
+                    {[7, 6, 5, 4, 3, 2, 1, 0].map((bitIndex) => (
+                        <DataPin
+                            key={bitIndex}
+                            label={`D${bitIndex}`}
+                            active={dataBus[bitIndex] === 1}
+                            onClick={() => toggleDataBit(bitIndex)}
+                        />
+                    ))}
+                    <div className="w-2"></div>
+                    <PulseButton
+                        label="EN"
+                        isActive={enState}
+                        onClick={handleEnPulse}
+                    />
                 </div>
 
+                <Terminal logs={logs}/>
             </div>
 
-            {/* STATE PANEL (Fixed below) */}
-            <div className="relative z-10">
-                <StatePanel
-                    config={{ busWidth, lineCount, entryMode, displayVisible, cursorStyle }}
-                    onConfigChange={handleConfigChange}
-                />
-            </div>
+            {/* RIGHT COLUMN: Allow internal vertical scroll for expanding menus. */}
+            <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative h-full overflow-y-auto">
+                 {/* UNIFIED REGISTER PANEL */}
+                <div className={`
+                    flex-shrink-0
+                    bg-white/5 backdrop-blur-md border rounded-xl p-6 w-full relative z-30
+                    min-h-[16rem] 
+                    flex flex-col
+                    transition-colors duration-500 ease-in-out
+                    ${borderColor}
+                `}>
 
+                    {/* Header (Animates Color) */}
+                    <div
+                        className={`flex justify-between items-center mb-4 border-b pb-2 transition-colors duration-500 ${borderColor}`}>
+                        <label
+                            className={`text-xs font-bold tracking-widest transition-colors duration-500 ${titleColor}`}>
+                            {labelText}
+                        </label>
+                        <span className={`text-[10px] font-mono transition-colors duration-500 ${subTextColor}`}>
+                      {statusText}
+                    </span>
+                    </div>
+
+                    {/* Dynamic Body Content - Framer Motion for Smooth Swap */}
+                    <div className="flex-1 flex flex-col justify-center overflow-hidden">
+                        <AnimatePresence mode="wait" initial={false}>
+                            {isDataMode ? (
+                                <motion.div
+                                    key="data"
+                                    layout
+                                    initial={{opacity: 0, y: 10}}
+                                    animate={{opacity: 1, y: 0}}
+                                    exit={{opacity: 0, y: -10}}
+                                    transition={{duration: 0.3}}
+                                    className="w-full"
+                                >
+                                    {DataInputUI}
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="command"
+                                    layout
+                                    initial={{opacity: 0, y: 10}}
+                                    animate={{opacity: 1, y: 0}}
+                                    exit={{opacity: 0, y: -10}}
+                                    transition={{duration: 0.3}}
+                                    className="w-full"
+                                >
+                                    {CommandInputUI}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                </div>
+
+                {/* STATE PANEL (Fixed below) */}
+                <div className="relative z-10 flex-shrink-0">
+                    <StatePanel
+                        config={{ busWidth, lineCount, entryMode, displayVisible, cursorStyle }}
+                        onConfigChange={handleConfigChange}
+                    />
+                </div>
+            </div>
         </div>
-
     </div>
   );
 };

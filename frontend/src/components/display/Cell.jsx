@@ -1,7 +1,19 @@
-import React from 'react';
+import React, { useState, memo } from 'react'; // <-- Import memo
 import { Font5x7 } from '../../utils/CharMap';
 
-const Cell = ({ char }) => {
+// ADDED props: onCellClick, row, col
+const Cell = ({ char, onCellClick, row, col }) => {
+
+  // NEW STATE: For the hover effect
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Handler to call the parent function with the cell's coordinates
+  const handleClick = () => {
+      if (onCellClick) {
+          onCellClick(row, col);
+      }
+  };
+
   // 1. Get the ASCII code (0-255)
   const charCode = char ? char.charCodeAt(0) : 32;
 
@@ -10,7 +22,19 @@ const Cell = ({ char }) => {
 
   // 3. Render the Grid
   return (
-    <div className="flex flex-col gap-[1px]">
+    <div
+        className={`
+            // Base styling for the cell container (adjust padding to control size)
+            flex flex-col gap-[1px]
+            cursor-pointer 
+            transition-transform duration-150 ease-out
+            // Hover styling for scaling up
+            ${isHovered ? 'scale-[1.1] bg-slate-800 rounded-sm' : 'scale-100'}
+        `}
+        onMouseEnter={() => setIsHovered(true)} // Handle hover start
+        onMouseLeave={() => setIsHovered(false)} // Handle hover end
+        onClick={handleClick} // Handle click event
+    >
       {/* Loop through 8 Rows */}
       {[0, 1, 2, 3, 4, 5, 6, 7].map((row) => (
         <div key={row} className="flex gap-[1px]">
@@ -38,4 +62,5 @@ const Cell = ({ char }) => {
   );
 };
 
-export default Cell;
+// EXPORT THE MEMOIZED VERSION
+export default memo(Cell); // <-- FIX APPLIED HERE
