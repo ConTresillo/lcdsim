@@ -1,7 +1,6 @@
 import React, { useState, memo } from 'react';
 import { Font5x7 } from '../../utils/CharMap';
 
-// ✅ UPDATED PROPS: Receive isActiveCursor and cursorStyle
 const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
 
   const [isHovered, setIsHovered] = useState(false);
@@ -12,10 +11,13 @@ const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
       }
   };
 
-  // --- CURSOR VISUAL LOGIC ---
+  // --- CURSOR LOGIC VARIABLES ---
   const isCursorVisible = isActiveCursor && cursorStyle !== 'Hidden';
-  const isBlinking = isCursorVisible && cursorStyle === 'Blinking Block';
-  const isUnderline = isCursorVisible && cursorStyle === 'Underline';
+  const isBlinkingStyle = isCursorVisible && cursorStyle === 'Blinking Block';
+  const isUnderlineStyle = isCursorVisible && cursorStyle === 'Underline';
+
+  // The CSS animation class is applied to the outer div:
+  const animationClass = isBlinkingStyle ? 'animate-pulse' : '';
 
   // 1. Get the ASCII code (0-255)
   const charCode = char ? char.charCodeAt(0) : 32;
@@ -31,8 +33,7 @@ const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
             cursor-pointer 
             transition-transform duration-75 ease-out
             
-            // Apply cursor blinking animation to the whole cell container
-            ${isBlinking ? 'animate-pulse' : ''} 
+            ${animationClass} 
             
             ${isHovered ? 'scale-[1.1] bg-slate-800 rounded-sm' : 'scale-100'}
         `}
@@ -41,7 +42,7 @@ const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
         onClick={handleClick}
     >
       {/* Loop through 8 Rows (0 to 7) */}
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((rowPixel) => ( // Renamed to rowPixel to avoid collision
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((rowPixel) => (
         <div key={rowPixel} className="flex gap-[1px]">
 
           {/* Loop through 5 Columns */}
@@ -49,47 +50,26 @@ const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
             const colByte = charData[colPixel];
             const isCharacterOn = (colByte >> rowPixel) & 1;
 
-            // --- PIXEL OVERRIDE LOGIC ---
             let pixelClasses = '';
 
-            if (isUnderline && rowPixel === 7) {
-                // Underline Cursor: Always ON for the last row
-                pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
-            } else if (isBlinking && rowPixel >= 0) {
-                // Blinking Block Cursor: Invert color or force ON for the block area
-                pixelClasses = 'bg-cyan-500 shadow-[0_0_4px_#22d3ee] opacity-100'; // Full solid block
-            } else if (isCharacterOn) {
-                // Standard Character Pixel
-                pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
-            } else {
-                // Standard OFF Pixel
-                pixelClasses = 'bg-[#0f1f22] border border-cyan-900/20 opacity-100';
-            }
+            // --- DEFINITIVE PIXEL RENDERING LOGIC ---
 
-            // Override background if Blinking Block is active
-            if (isBlinking && !isCharacterOn) {
-                // If Blinking Block is active, force entire cell background to be the cursor color
-                // This creates the inversion effect without complex CSS filters.
-                pixelClasses = 'bg-cyan-500 shadow-[0_0_4px_#22d3ee] opacity-100';
-            }
-
-            // --- PIXEL RENDERING LOGIC (The core fix) ---
-
-            if (isBlinkingStyle && isBlinkingPhase) {
-                // Scenario 1: BLINKING BLOCK - Visible Phase (This is JS logic, assume OFF for now)
+            if (isBlinkingStyle) {
+                // SCENARIO 1: BLINKING BLOCK (Highest priority)
+                // Force the pixel to be the active color to create the solid block effect.
                 pixelClasses = 'bg-cyan-500 shadow-[0_0_4px_#22d3ee] opacity-100';
             }
             else if (isUnderlineStyle && rowPixel === 7) {
-                // ✅ FIX: SCENARIO 2 - UNDERLINE CURSOR
-                // Forces the last row pixel (row 7) to be ON.
+                // SCENARIO 2: UNDERLINE CURSOR (Second highest priority - only bottom row)
+                // Forces the last row pixel (row 7) ON.
                 pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
             }
             else if (isCharacterOn) {
-                // Scenario 3: STANDARD CHARACTER PIXEL
+                // SCENARIO 3: STANDARD CHARACTER PIXEL
                 pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
             }
             else {
-                // Scenario 4: OFF PIXEL
+                // SCENARIO 4: STANDARD OFF PIXEL (Empty space)
                 pixelClasses = 'bg-[#0f1f22] border border-cyan-900/20 opacity-100';
             }
 
@@ -106,15 +86,5 @@ const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
     </div>
   );
 };
-
-// You will also need to define the blinking animation in your global CSS (e.g., index.css or global.css):
-/* @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-}
-.animate-pulse {
-    animation: pulse 1s infinite;
-}
-*/
 
 export default memo(Cell);
