@@ -26,8 +26,7 @@ const LcdScreen = ({
     onCellClick,
     cursorRow,
     cursorCol,
-    cursorStyle,
-    isBlinkingPhase
+    cursorStyle
 }) => {
   const r1 = row1Data && row1Data.length === 16 ? row1Data : Array(16).fill(32);
   const r2 = row2Data && row2Data.length === 16 ? row2Data : Array(16).fill(32);
@@ -106,7 +105,6 @@ const LcdScreen = ({
                         // ✅ PROPS PASSED TO CELL
                         isActiveCursor={cursorRow === 0 && cursorCol === i}
                         cursorStyle={cursorStyle}
-                        isBlinkingPhase={isBlinkingPhase}
                     />
                 ))}
             </div>
