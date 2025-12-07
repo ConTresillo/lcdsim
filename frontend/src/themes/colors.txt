@@ -1,0 +1,55 @@
+1. Brand & Accent Colors (brand)
+These are typically the primary glowing and utility colors of the simulator.
+
+neon: The primary bright accent color (e.g., Cyan or Neon Green).
+
+glow: The secondary shadow/glow accent color.
+
+glass: The transparent overlay color used for visual effects.
+
+yellow: The primary accent color for pulse/action buttons.
+
+2. Main Backgrounds (background)
+These define the largest background areas of your application's layout.
+
+body: The main background color for the entire page.
+
+terminal: The dedicated background color for the system log/terminal panel.
+
+deepSlate: The darkest color used in gradients, typically at the edge of the screen.
+
+3. LCD & Pixel States (lcd)
+These define the specific colors of the simulated LCD hardware.
+
+offPixel: The dark, unlit background color of the character segment (used in Cell.jsx).
+
+onPixel: The bright, lit color of the character segment (for non-blinking pixels).
+
+pulseOff: The background color used during the OFF cycle of the blinking animation.
+
+pulseOn: The background color used during the ON cycle of the blinking animation.
+
+screenBg: The background color of the inner LCD glass/panel, behind the dots (used in LcdScreen.jsx).
+
+pcbFrame: The background color of the outer simulated PCB board.
+
+pcbTrace: The color of the PCB traces (lines drawn on the board).
+
+pinBg: The color of the circular backgrounds of the data pins.
+
+mountHole: The color of the borders for the screen's mounting holes.
+
+4. UI Components (ui)
+These are specific colors for interaction and utility elements that require custom coloring.
+
+rsOn: The color for the RS toggle switch when it is ON (Data Mode).
+
+rwOn: The color for the RW toggle switch when it is ON (Read Mode).
+
+enPulse: The color for the EN Pulse button (same as brand.yellow).
+
+dataPinOn: The color of the data bus pins when they are HIGH (ON).
+
+scrollTrack: The color of the terminal scrollbar track.
+
+scrollThumb: The color of the terminal scrollbar thumb.
