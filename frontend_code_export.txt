@@ -1,0 +1,1582 @@
+
+
+===== eslint.config.js =====
+
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{js,jsx}'],
+    extends: [
+      js.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+      parserOptions: {
+        ecmaVersion: 'latest',
+        ecmaFeatures: { jsx: true },
+        sourceType: 'module',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+    },
+  },
+])
+
+
+===== index.html =====
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+
+===== postcss.config.js =====
+
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+
+===== tailwind.config.js =====
+
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        neon: '#00F0FF',
+        glass: 'rgba(255, 255, 255, 0.05)',
+      },
+      fontFamily: {
+        mono: ['VT323', 'monospace'],
+        tech: ['Orbitron', 'sans-serif'],
+      },
+      boxShadow: {
+        'neon': '0 0 10px #00F0FF, 0 0 20px #00F0FF',
+      },
+
+      // ✅ CURSOR BLINKING FIX: ADD KEYFRAMES AND ANIMATION
+      // --- REMOVED: keyframes and animation for pulse ---
+    },
+  },
+  plugins: [],
+}
+
+===== vite.config.js =====
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react-swc'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+
+
+===== src\App.css =====
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+
+===== src\App.jsx =====
+
+import React from 'react';
+
+// Import Layouts
+import Navbar from './components/layout/Navbar';
+import LcdController from './components/layout/LcdController';
+
+const App = () => {
+  return (
+    // FIX APPLIED: Use h-screen (exact height) and overflow-hidden to contain the page.
+    // Use p-2 or p-4 on an inner container or margin on elements instead of the outer wrapper.
+    <div className="h-screen w-screen bg-gradient-to-br from-slate-900 via-slate-950 to-black text-white flex flex-col items-center overflow-hidden">
+
+      {/* 1. Navbar (Fixed at top) */}
+      <Navbar />
+
+      {/* 2. Main Controller: Uses remaining height for scrollable content */}
+      <div className="flex-1 w-full flex justify-center p-4 overflow-y-auto">
+          <LcdController />
+      </div>
+
+      {/* 3. Footer/Copyright: Fixed position at the very bottom (optional) or inside the scroll area */}
+      <div className="mt-2 text-gray-600 text-xs flex-shrink-0">Copyright © -. All rights reserved</div>
+    </div>
+  );
+};
+
+export default App;
+
+===== src\index.css =====
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=VT323&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #0f172a;
+  color: white;
+  font-family: 'Orbitron', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar for Terminal */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+===== src\main.jsx =====
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+===== src\components\display\Cell.jsx =====
+
+import React, { useState, memo } from 'react';
+import { Font5x7 } from '../../utils/CharMap';
+
+// REMOVED: isActiveCursor, cursorStyle props
+const Cell = ({ char, onCellClick, row, col }) => {
+
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleClick = () => {
+      if (onCellClick) {
+          onCellClick(row, col);
+      }
+  };
+
+  // --- CURSOR LOGIC VARIABLES ---
+  // --- REMOVED all cursor-related variables and animationClass ---
+
+  // 1. Get the ASCII code (0-255)
+  const charCode = char ? char.charCodeAt(0) : 32;
+
+  // 2. Lookup the pattern
+  const charData = Font5x7[charCode] || Font5x7[32];
+
+  // 3. Render the Grid
+  return (
+    <div
+        className={`
+            flex flex-col gap-[1px]
+            cursor-pointer 
+            transition-transform duration-75 ease-out
+            
+            
+            ${isHovered ? 'scale-[1.1] bg-slate-800 rounded-sm' : 'scale-100'}
+        `}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={handleClick}
+    >
+      {/* Loop through 8 Rows (0 to 7) */}
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((rowPixel) => (
+        <div key={rowPixel} className="flex gap-[1px]">
+
+          {/* Loop through 5 Columns */}
+          {[0, 1, 2, 3, 4].map((colPixel) => {
+            const colByte = charData[colPixel];
+            const isCharacterOn = (colByte >> rowPixel) & 1;
+
+            let pixelClasses = '';
+
+            // --- DEFINITIVE PIXEL RENDERING LOGIC ---
+            // --- REMOVED SCENARIO 1 & 2 (Blinking/Underline Cursor) ---
+
+            if (isCharacterOn) {
+                // SCENARIO 3: STANDARD CHARACTER PIXEL
+                pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
+            }
+            else {
+                // SCENARIO 4: STANDARD OFF PIXEL (Empty space)
+                pixelClasses = 'bg-[#0f1f22] border border-cyan-900/20 opacity-100';
+            }
+
+            return (
+              <div
+                key={colPixel}
+                // Apply the calculated classes
+                className={`w-[2px] h-[2px] md:w-[3px] md:h-[3px] rounded-[0.5px] transition-colors duration-200 ${pixelClasses}`}
+              />
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default memo(Cell);
+
+===== src\components\display\LcdScreen.jsx =====
+
+import React from 'react';
+import Cell from './Cell';
+
+// --- 1. MountingHole Component ---
+const MountingHole = ({ position }) => (
+  <div
+    className={`
+      absolute ${position} 
+      w-3 h-3 
+      rounded-full 
+      bg-[#111] 
+      border-2 border-[#b8860b] 
+      shadow-[inset_0_0_2px_black] 
+      opacity-80 
+      blur-[2px]
+    `}
+  ></div>
+);
+
+// --- 2. Main LcdScreen Component ---
+// ✅ UPDATED PROPS: Removed cursorRow, cursorCol, and cursorStyle
+const LcdScreen = ({
+    row1Data,
+    row2Data,
+    backlight,
+    onCellClick,
+}) => {
+  const r1 = row1Data && row1Data.length === 16 ? row1Data : Array(16).fill(32);
+  const r2 = row2Data && row2Data.length === 16 ? row2Data : Array(16).fill(32);
+
+  // LOGIC: If backlight is OFF, the glass gets dark and text gets dim.
+  const screenStateClass = backlight === "OFF"
+    ? "opacity-50 brightness-10" // Dimmed state
+    : "opacity-100 brightness-100";        // ON state
+
+  return (
+    <div className="relative p-1 w-fit mx-auto">
+
+      {/* ================================================= */}
+      {/* === OUTER PCB BOARD (Always Visible)          === */}
+      {/* ================================================= */}
+      <div className="absolute inset-0 bg-[#0c2229] opacity-50 rounded-xl border border-slate-700 shadow-2xl"></div>
+
+      {/* PCB Traces (Same) */}
+      <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+        <pattern id="traces" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M0 10 h20 M10 0 v20" stroke="#06b6d4" strokeWidth="1" fill="none"/>
+          <circle cx="10" cy="10" r="2" fill="#06b6d4"/>
+        </pattern>
+        <rect width="100%" height="100%" fill="url(#traces)" />
+        <path d="M10 10 Q 30 10 30 30" stroke="#06b6d4" strokeWidth="1.5" fill="none" className="opacity-50"/>
+        <path d="M280 10 Q 260 10 260 30" stroke="#06b6d4" strokeWidth="1.5" fill="none" className="opacity-50"/>
+      </svg>
+
+      {/* Pins (Same) */}
+      <div className="relative z-10 flex justify-center gap-2 mb-1 pt-1 opacity-80">
+         {[...Array(16)].map((_, i) => (
+           <div key={i} className="flex flex-col items-center gap-[1px]">
+             <div className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a] border border-[#b87333] shadow-inner"></div>
+             <span className="text-[6px] text-gray-400 font-mono">{i+1}</span>
+           </div>
+         ))}
+      </div>
+
+      <MountingHole position="top-2 left-2" />
+      <MountingHole position="top-2 right-2" />
+      <MountingHole position="bottom-2 left-2" />
+      <MountingHole position="bottom-2 right-2" />
+
+
+      {/* ================================================= */}
+      {/* === THE SCREEN BEZEL & GLASS                  === */}
+      {/* ================================================= */}
+      <div className="relative bg-slate-900 px-3 py-2 rounded-md shadow-lg border-t border-slate-700 mx-2 mb-2 z-20">
+         <div className="absolute top-1/2 left-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
+         <div className="absolute top-1/2 right-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
+
+         {/* === INNER GLASS (This part reacts to Backlight) === */}
+         <div
+            className={`
+              bg-[#1a2e2e] py-2 px-3 rounded border-2 border-slate-700/50 
+              shadow-[inset_0_0_15px_rgba(0,0,0,1)] 
+              relative overflow-hidden flex flex-col items-center justify-center gap-1
+              transition-all duration-500 ease-in-out
+              ${screenStateClass} 
+            `}
+         >
+            {/* Backlight Glow (Only visible when ON due to parent opacity) */}
+            <div className="absolute inset-0 bg-cyan-500/40 blur-xl pointer-events-none"></div>
+
+            <div className="absolute top-0 right-0 w-[150%] h-full bg-gradient-to-b from-white/5 to-transparent transform -skew-x-45 pointer-events-none z-20"></div>
+
+            {/* ROW 1: Index 0 */}
+            <div className="flex gap-[2px] md:gap-[3px] relative z-10">
+                {r1.map((code, i) => (
+                    <Cell
+                        key={`r1-${i}`}
+                        char={String.fromCharCode(code)}
+                        row={0} // Row index 0
+                        col={i} // Column index 0-15
+                        onCellClick={onCellClick}
+                        // ✅ REMOVED: isActiveCursor and cursorStyle props
+                    />
+                ))}
+            </div>
+
+            {/* ROW 2: Index 1 */}
+            <div className="flex gap-[2px] md:gap-[3px] relative z-10">
+                {r2.map((code, i) => (
+                    <Cell
+                        key={`r2-${i}`}
+                        char={String.fromCharCode(code)}
+                        row={1} // Row index 1
+                        col={i} // Column index 0-15
+                        onCellClick={onCellClick}
+                        // ✅ REMOVED: isActiveCursor and cursorStyle props
+                    />
+                ))}
+            </div>
+         </div>
+      </div>
+
+    </div>
+  );
+};
+
+export default LcdScreen;
+
+===== src\components\display\Terminal.jsx =====
+
+import React, { useEffect, useRef } from 'react';
+
+const Terminal = ({ logs }) => {
+  const bottomRef = useRef(null);
+
+  // LOGIC: Auto-scroll to the bottom whenever 'logs' change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  return (
+    <div className="w-full bg-[#050b14] border border-cyan-500/30 rounded-xl p-4 shadow-inner mt-4 font-mono h-64 flex flex-col relative">
+
+      {/* 1. TERMINAL HEADER */}
+      <div className="flex justify-between items-center border-b border-cyan-900/50 pb-2 mb-2 bg-[#050b14]">
+         {/* Increased header size to text-xs */}
+         <span className="text-cyan-500 text-xs font-bold tracking-widest uppercase">System Logs</span>
+
+         {/* Fake Window Controls */}
+         <div className="flex gap-1.5 opacity-50">
+           <div className="w-2.5 h-2.5 rounded-full bg-cyan-800"></div>
+           <div className="w-2.5 h-2.5 rounded-full bg-cyan-800"></div>
+         </div>
+      </div>
+
+      {/* 2. LOG OUTPUT AREA */}
+      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+         {logs.map((log, i) => (
+           // INCREASED FONT SIZE: text-sm -> text-base
+           <div key={i} className="text-base font-medium text-cyan-300/90 hover:bg-white/5 px-2 py-1 rounded transition-colors break-words leading-relaxed">
+
+             {/* Visual separation: If log starts with '>', style it differently */}
+             {log.startsWith('>') ? (
+               <>
+                 <span className="text-cyan-600 select-none mr-3 font-bold">{'>'}</span>
+                 <span className="drop-shadow-[0_0_2px_rgba(34,211,238,0.3)]">{log.substring(2)}</span>
+               </>
+             ) : (
+               log
+             )}
+           </div>
+         ))}
+
+         {/* 3. BLINKING CURSOR & SCROLL ANCHOR */}
+         {/* --- REMOVED: Blinking Cursor Element --- */}
+         <div className="flex items-center text-cyan-500 mt-2 pl-2" ref={bottomRef}>
+            <span className="mr-3 text-cyan-700 text-lg">{'>'}</span>
+         </div>
+      </div>
+    </div>
+  );
+};
+
+export default Terminal;
+
+===== src\components\layout\ActionPanel.jsx =====
+
+import React, { useState } from 'react';
+import NeonButton from '../ui/NeonButton';
+import { ACTION_COMMANDS } from '../../utils/LcdCommands';
+import { ChevronDown } from 'lucide-react';
+
+const ActionPanel = ({ onExecute }) => {
+  const [selectedHex, setSelectedHex] = useState(0x01);
+  const [hexInput, setHexInput] = useState("0x01");
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleDropdownSelect = (hex) => {
+    setSelectedHex(hex);
+    setHexInput('0x' + hex.toString(16).toUpperCase().padStart(2, '0'));
+    setIsOpen(false);
+  };
+
+  const handleManualInput = (e) => {
+    setHexInput(e.target.value);
+    const val = parseInt(e.target.value.replace("0x", ""), 16);
+    if (!isNaN(val)) setSelectedHex(val);
+  };
+
+  return (
+    // REMOVED OUTER DIV/BORDER/TITLE (Handled by App.jsx now)
+    <div className="flex flex-col gap-3">
+
+      {/* Custom Dropdown */}
+      <div className="relative z-50">
+        <div
+          onClick={() => setIsOpen(!isOpen)}
+          className="bg-slate-900 border border-cyan-500/30 rounded px-3 py-2 text-cyan-300 text-sm flex justify-between items-center cursor-pointer hover:border-cyan-400 transition-all"
+        >
+          {ACTION_COMMANDS.find(c => c.hex === selectedHex)?.label || "Select Action"}
+          <ChevronDown size={14} />
+        </div>
+
+        {isOpen && (
+          <div className="absolute top-full left-0 w-full mt-1 bg-slate-900 border border-cyan-500/50 rounded shadow-xl max-h-40 overflow-y-auto">
+            {ACTION_COMMANDS.map((cmd) => (
+              <div
+                key={cmd.hex}
+                onClick={() => handleDropdownSelect(cmd.hex)}
+                className="px-3 py-2 text-sm text-cyan-300 hover:bg-cyan-500/20 cursor-pointer flex justify-between"
+              >
+                <span>{cmd.label}</span>
+                <span className="text-gray-500 font-mono text-xs">{'0x' + cmd.hex.toString(16).toUpperCase().padStart(2, '0')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Hex Input & Execute */}
+      <div className="flex gap-2">
+        <div className="w-24">
+           <div className="bg-slate-900 border border-cyan-500/30 rounded flex items-center px-3 py-2 h-full">
+              <input
+                type="text"
+                value={hexInput}
+                onChange={handleManualInput}
+                className="bg-transparent border-none text-cyan-300 w-full focus:outline-none font-mono text-center text-sm"
+              />
+           </div>
+        </div>
+
+        <div className="flex-1">
+          <NeonButton label="EXECUTE" onClick={() => onExecute(selectedHex)} />
+        </div>
+      </div>
+
+    </div>
+  );
+};
+
+export default ActionPanel;
+
+===== src\components\layout\GpioPanel.jsx =====
+
+import React from 'react';
+import ToggleSwitch from '../ui/ToggleSwitch';
+import NeonDropdown from '../ui/NeonDropdown';
+
+const GpioPanel = ({ gpio, setGpio, backlight, setBacklight, enState, onManualEn }) => (
+  <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6 h-fit">
+    <h3 className="text-neon mb-6 font-bold border-b border-white/10 pb-2">GPIO SWITCHES</h3>
+
+    <ToggleSwitch label="RS" subtitle="Register Select" active={gpio.rs} onClick={() => setGpio({...gpio, rs: !gpio.rs})} />
+    <ToggleSwitch label="RW" subtitle="Read/Write" active={gpio.rw} onClick={() => setGpio({...gpio, rw: !gpio.rw})} />
+
+    {/* EN SWITCH (Linked to Shared State) */}
+    <ToggleSwitch
+        label="EN"
+        subtitle="Enable Line"
+        active={enState}      // Visual: Reflects the shared line state
+        onClick={onManualEn}  // Action: Toggles the shared state manually
+    />
+
+    <div className="mt-8 space-y-4">
+       <div>
+         <label className="text-xs text-gray-400 block mb-1">BACKLIGHT</label>
+         <NeonDropdown
+            value={backlight}
+            options={["ON", "OFF"]}
+            onChange={setBacklight}
+         />
+       </div>
+    </div>
+  </div>
+);
+
+export default GpioPanel;
+
+===== src\components\layout\LcdController.jsx =====
+
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// --- NEW: IMPORT THE CUSTOM HOOK ---
+import { useLcdSim } from '../../utils/useLcdSim';
+
+// Import all Layout/Display Components (They are now 'Dumb' presenters)
+import GpioPanel from './GpioPanel';
+import ActionPanel from './ActionPanel';
+import StatePanel from './StatePanel';
+import LcdScreen from '../display/LcdScreen';
+import Terminal from '../display/Terminal';
+
+// Import UI Atoms
+import DataPin from '../ui/DataPin';
+import NeonButton from '../ui/NeonButton';
+import NeonDropdown from '../ui/NeonDropdown';
+import PulseButton from '../ui/PulseButton';
+
+// NOTE: All prior logic functions (hexStringToInt, getFunctionSetCommand, etc.) are now inside useLcdSim.js
+
+const LcdController = () => {
+
+  // --- 1. USE CUSTOM HOOK TO GET ALL STATE AND HANDLERS ---
+  const {
+    state,
+    handlers,
+    setters,
+  } = useLcdSim();
+
+  // Destructure for cleaner access in JSX
+  const {
+    logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
+    busWidth, lineCount, entryMode, displayVisible, cursorStyle,
+    // ✅ NEW: Cursor position state pulled from the hook
+    cursorRow, cursorCol
+  } = state;
+
+  const {
+    handleManualEn, handleEnPulse, handleBacklightChange, handleSend, sendCommand,
+    toggleDataBit, handleCellClick, handleConfigChange
+  } = handlers;
+
+  const {
+    setGpio, setInputFormat, setInputValue, setBacklight // Added setBacklight
+  } = setters;
+
+
+  // --- DYNAMIC THEME CALCULATIONS (Using state values from the hook) ---
+  const isDataMode = gpio.rs;
+  const borderColor = isDataMode ? "border-cyan-500/30" : "border-yellow-500/30";
+  const titleColor  = isDataMode ? "text-cyan-400" : "text-yellow-500";
+  const subTextColor = isDataMode ? "text-cyan-600" : "text-yellow-700";
+  const labelText   = isDataMode ? "DATA REGISTER (DR)" : "INSTRUCTION REGISTER (IR)";
+  const statusText  = isDataMode ? "RS=1 (HIGH)" : "RS=0 (LOW)";
+
+
+  // --- COMPONENT RENDER LOGIC ---
+
+  const DataInputUI = (
+    <div className="flex flex-col gap-4">
+       <div className="bg-slate-900 border border-cyan-500/30 rounded flex items-center px-3 py-2 w-full">
+          <input
+            className="bg-transparent border-none text-cyan-300 w-full focus:outline-none font-mono"
+            placeholder={
+              inputFormat === "Hex" ? "e.g. 0x4A" :
+              inputFormat === "Decimal" ? "e.g. 65" :
+              inputFormat === "Binary" ? "e.g. 00011000" :
+              "e.g. A"
+            }
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSend(); }}
+          />
+       </div>
+       <div className="flex gap-2">
+          <div className="w-28 relative">
+              <NeonDropdown
+                 value={inputFormat}
+                 options={["Hex", "Decimal", "Binary", "ASCII"]}
+                 onChange={setInputFormat}
+              />
+          </div>
+          <div className="flex-1">
+              <NeonButton label="SEND DATA" onClick={handleSend} />
+          </div>
+       </div>
+    </div>
+  );
+
+  const CommandInputUI = (
+    <div className="flex-1">
+      <ActionPanel onExecute={sendCommand} />
+    </div>
+  );
+
+
+  // --- START OF STRUCTURAL RENDER ---
+  return (
+    // Outer Container: Max width for the whole simulator panel, consumes full height.
+    <div className="max-w-6xl w-full h-full">
+
+        {/* Main Grid: Takes available width and manages content flow for the columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full h-full">
+
+            {/* LEFT COLUMN: Fixed content height relative to container. Scrollable if content overflows. */}
+            <div className="lg:col-span-3 min-w-0 flex flex-col h-full overflow-y-auto">
+                <GpioPanel
+                    gpio={gpio}
+                    setGpio={setGpio}
+                    enState={enState}
+                    onManualEn={handleManualEn}
+                    backlight={backlight}
+                    setBacklight={handleBacklightChange}
+                />
+            </div>
+
+            {/* CENTER COLUMN: Allow internal vertical scroll for logs/terminal. */}
+            <div className="lg:col-span-6 flex flex-col gap-6 items-center min-w-0 h-full overflow-y-auto">
+                <div className="w-full flex justify-center transition-all duration-500 flex-shrink-0">
+                    <LcdScreen
+                        row1Data={lcdRows.row1}
+                        row2Data={lcdRows.row2}
+                        backlight={backlight}
+                        onCellClick={handleCellClick}
+
+                        // ✅ PROPS PASSED TO LCD SCREEN FOR CURSOR RENDERING
+                        cursorRow={cursorRow}
+                        cursorCol={cursorCol}
+                        cursorStyle={cursorStyle}
+                    />
+                </div>
+
+                <div className="flex gap-2 justify-center flex-wrap w-full items-center flex-shrink-0">
+                    {[7, 6, 5, 4, 3, 2, 1, 0].map((bitIndex) => (
+                        <DataPin
+                            key={bitIndex}
+                            label={`D${bitIndex}`}
+                            active={dataBus[bitIndex] === 1}
+                            onClick={() => toggleDataBit(bitIndex)}
+                        />
+                    ))}
+                    <div className="w-2"></div>
+                    <PulseButton
+                        label="EN"
+                        isActive={enState}
+                        onClick={handleEnPulse}
+                    />
+                </div>
+
+                <Terminal logs={logs}/>
+            </div>
+
+            {/* RIGHT COLUMN: Allow internal vertical scroll for expanding menus. */}
+            <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative h-full overflow-y-auto">
+                 {/* UNIFIED REGISTER PANEL */}
+                <div className={`
+                    flex-shrink-0
+                    bg-white/5 backdrop-blur-md border rounded-xl p-6 w-full relative z-30
+                    min-h-[16rem] 
+                    flex flex-col
+                    transition-colors duration-500 ease-in-out
+                    ${borderColor}
+                `}>
+
+                    {/* Header (Animates Color) */}
+                    <div
+                        className={`flex justify-between items-center mb-4 border-b pb-2 transition-colors duration-500 ${borderColor}`}>
+                        <label
+                            className={`text-xs font-bold tracking-widest transition-colors duration-500 ${titleColor}`}>
+                            {labelText}
+                        </label>
+                        <span className={`text-[10px] font-mono transition-colors duration-500 ${subTextColor}`}>
+                      {statusText}
+                    </span>
+                    </div>
+
+                    {/* Dynamic Body Content - Framer Motion for Smooth Swap */}
+                    <div className="flex-1 flex flex-col justify-center overflow-hidden">
+                        <AnimatePresence mode="wait" initial={false}>
+                            {isDataMode ? (
+                                <motion.div
+                                    key="data"
+                                    layout
+                                    initial={{opacity: 0, y: 10}}
+                                    animate={{opacity: 1, y: 0}}
+                                    exit={{opacity: 0, y: -10}}
+                                    transition={{duration: 0.3}}
+                                    className="w-full"
+                                >
+                                    {DataInputUI}
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="command"
+                                    layout
+                                    initial={{opacity: 0, y: 10}}
+                                    animate={{opacity: 1, y: 0}}
+                                    exit={{opacity: 0, y: -10}}
+                                    transition={{duration: 0.3}}
+                                    className="w-full"
+                                >
+                                    {CommandInputUI}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                </div>
+
+                {/* STATE PANEL (Fixed below) */}
+                <div className="relative z-10 flex-shrink-0">
+                    <StatePanel
+                        config={{ busWidth, lineCount, entryMode, displayVisible, cursorStyle }}
+                        onConfigChange={handleConfigChange}
+                    />
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+};
+
+export default LcdController;
+
+===== src\components\layout\Navbar.jsx =====
+
+import React from 'react';
+import { Menu, Home, FileText } from 'lucide-react';
+
+const Navbar = () => (
+  <nav className="w-full max-w-6xl flex justify-between items-center py-6 mb-8 border-b border-white/5">
+    <div className="flex gap-4 text-gray-400"><Menu /><Home className="text-neon" /><FileText /></div>
+    <h1 className="text-4xl font-bold text-neon tracking-widest drop-shadow-[0_0_10px_rgba(0,240,255,0.6)]">LCD 16x2 SIMULATOR</h1>
+    <div className="flex gap-6 text-sm font-bold text-gray-400"><span className="text-neon">HOME</span><span>DOCS</span><span>ABOUT</span></div>
+  </nav>
+);
+
+export default Navbar;
+
+===== src\components\layout\StatePanel.jsx =====
+
+import React, { useState, useEffect } from 'react';
+import NeonDropdown from '../ui/NeonDropdown';
+// Assuming the import path is correct
+import { ENTRY_MODES, CURSOR_MODES, DISPLAY_POWER, LINE_MODES, BUS_MODES } from '../../utils/LcdCommands';
+
+// Define constants for the constraints based on your command table
+const DISPLAY_ON_LABEL = 'Display ON';
+const DISPLAY_OFF_LABEL = 'Display OFF';
+const CURSOR_HIDDEN_LABEL = 'Hidden';
+
+// Based on your command list, assuming:
+const DISPLAY_ON_HEX = 0x0C;
+const CURSOR_HIDDEN_HEX = 0x0C; // 0x0C means Display ON, Cursor OFF (Hidden)
+
+const StatePanel = ({ config, onConfigChange }) => {
+    // INTERNAL STATE: Use internal state for smooth UI interaction
+    const [entryLabel, setEntryLabel] = useState(config.entryMode);
+    const [cursorLabel, setCursorLabel] = useState(config.cursorStyle);
+    const [busLabel, setBusLabel] = useState(config.busWidth);
+    const [displayLabel, setDisplayLabel] = useState(config.displayVisible);
+    const [lineLabel, setLineLabel] = useState(config.lineCount);
+
+    // Synchronize internal state when props change (e.g., if LcdController resets)
+    useEffect(() => {
+        setEntryLabel(config.entryMode);
+        setCursorLabel(config.cursorStyle);
+        setBusLabel(config.busWidth);
+        setDisplayLabel(config.displayVisible);
+        setLineLabel(config.lineCount);
+    }, [config]);
+
+
+    // Helper to find the Hex command for a given label in a list
+    const getCommandData = (label, list) => list.find(item => item.label === label);
+
+    // --- UNIFIED DROPDOWN HANDLER: Incorporating Constraints ---
+    const handleDropdownChange = (newValue, setter, propertyName, commandList = null) => {
+
+        // Use local state values for calculating constraints *before* updating them
+        let newDisplayLabel = displayLabel;
+        let newCursorLabel = cursorLabel;
+        let commands = []; // Array to hold sequenced commands
+
+        // 1. Determine the command for the *direct* action, and apply temporary state change
+        const currentHex = commandList ? getCommandData(newValue, commandList)?.hex : undefined;
+
+        // Update the temporary labels based on the user's action
+        if (propertyName === 'displayVisible') newDisplayLabel = newValue;
+        if (propertyName === 'cursorStyle') newCursorLabel = newValue;
+
+        // 2. APPLY CONSTRAINTS (Logic sequence is critical)
+
+        // --- CONSTRAINT 1: Display OFF forces Cursor Hidden ---
+        if (propertyName === 'displayVisible' && newValue === DISPLAY_OFF_LABEL) {
+            if (newCursorLabel !== CURSOR_HIDDEN_LABEL) {
+                newCursorLabel = CURSOR_HIDDEN_LABEL;
+                // Add the Cursor Hidden command to the sequence BEFORE Display OFF
+                commands.push(CURSOR_HIDDEN_HEX);
+            }
+        }
+
+        // --- CONSTRAINT 2: Cursor Visible forces Display ON ---
+        if (propertyName === 'cursorStyle' && newValue !== CURSOR_HIDDEN_LABEL) {
+            if (newDisplayLabel === DISPLAY_OFF_LABEL) {
+                newDisplayLabel = DISPLAY_ON_LABEL;
+                // Add the Display ON command to the sequence
+                commands.push(DISPLAY_ON_HEX);
+            }
+        }
+
+        // 3. Add the command for the user's direct action *after* constraints (if applicable)
+        if (currentHex !== undefined) {
+             commands.push(currentHex);
+        }
+
+        // 4. Update the internal state variables for the current component
+        setter(newValue); // Update the state the user directly changed
+
+        if (newDisplayLabel !== displayLabel) {
+            setDisplayLabel(newDisplayLabel); // Update Display state
+        }
+        if (newCursorLabel !== cursorLabel) {
+            setCursorLabel(newCursorLabel); // Update Cursor state
+        }
+
+        // 5. Construct the full future config and dispatch to parent
+        const newConfig = {
+            busWidth: propertyName === 'busWidth' ? newValue : busLabel,
+            lineCount: propertyName === 'lineCount' ? newValue : lineLabel,
+            entryMode: propertyName === 'entryMode' ? newValue : entryLabel,
+            displayVisible: newDisplayLabel,
+            cursorStyle: newCursorLabel,
+        };
+
+        // Dispatch all resulting commands to the parent
+        onConfigChange({
+            newConfig: newConfig,
+            changedProp: propertyName,
+            commands: commands // Pass array of hex values for Display/Entry/Cursor/Constraint actions
+        });
+    };
+
+
+    return (
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6 w-full">
+            <label className="text-cyan-400 text-xs font-bold tracking-widest block mb-4 border-b border-cyan-900/50 pb-1">
+                CONFIGURATION STATE
+            </label>
+
+            {/* --- NORMAL VERTICAL STACK --- */}
+            <div className="flex flex-col gap-4">
+
+                {/* Item 1: Display Visibility */}
+                <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Display Visibility</span>
+                    <NeonDropdown
+                        value={displayLabel}
+                        options={DISPLAY_POWER.map(d => d.label)}
+                        onChange={(val) => handleDropdownChange(val, setDisplayLabel, 'displayVisible', DISPLAY_POWER)}
+                    />
+                </div>
+
+                {/* Item 2: Entry Mode */}
+                <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Entry Mode</span>
+                    <NeonDropdown
+                        value={entryLabel}
+                        options={ENTRY_MODES.map(e => e.label)}
+                        onChange={(val) => handleDropdownChange(val, setEntryLabel, 'entryMode', ENTRY_MODES)}
+                    />
+                </div>
+
+                {/* Item 3: Cursor Style */}
+                <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Cursor Style</span>
+                    <NeonDropdown
+                        value={cursorLabel}
+                        options={CURSOR_MODES.map(c => c.label)}
+                        onChange={(val) => handleDropdownChange(val, setCursorLabel, 'cursorStyle', CURSOR_MODES)}
+                    />
+                </div>
+
+                {/* Item 4: Bus Interface (Triggers Function Set Calc) */}
+                <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Bus Interface (Width)</span>
+                    <NeonDropdown
+                        value={busLabel}
+                        options={BUS_MODES.map(b => b.label)}
+                        onChange={(val) => handleDropdownChange(val, setBusLabel, 'busWidth')}
+                    />
+                </div>
+
+                {/* Item 5: Line Count (Triggers Function Set Calc) */}
+                <div>
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Line Count</span>
+                    <NeonDropdown
+                        value={lineLabel}
+                        options={LINE_MODES.map(l => l.label)}
+                        onChange={(val) => handleDropdownChange(val, setLineLabel, 'lineCount')}
+                    />
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
+export default StatePanel;
+
+===== src\components\ui\DataPin.jsx =====
+
+import React from 'react';
+
+const DataPin = ({ label, active, onClick }) => (
+  <div
+    onClick={onClick}
+    className={`
+      w-10 h-10 rounded border flex items-center justify-center font-mono text-sm cursor-pointer select-none
+      
+      /* ANIMATION: Smooth 200ms speed */
+      transition-all duration-75 ease-out
+      
+      /* HOVER: Scale up regardless of state */
+      hover:scale-110
+      
+      ${active 
+        ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_#22d3ee] scale-110' // Active (ON)
+        : 'border-gray-700 bg-gray-800/20 text-gray-600 hover:border-gray-500 hover:text-gray-400' // Inactive (OFF) -> Hover lightens border AND text
+      }
+    `}
+  >
+    {label}
+  </div>
+);
+
+export default DataPin;
+
+===== src\components\ui\NeonButton.jsx =====
+
+import React from 'react';
+
+const NeonButton = ({ onClick, label }) => (
+  <button
+    onClick={onClick}
+    // Added: 'w-full' (fill space), 'py-2' (match dropdown height), 'text-sm' (match font size)
+    className="w-full py-2 bg-cyan-500/20 border border-cyan-400 text-cyan-400 rounded px-4 text-sm font-bold hover:bg-cyan-400 hover:text-black transition-all shadow-[0_0_10px_rgba(34,211,238,0.2)] flex items-center justify-center"
+  >
+    {label}
+  </button>
+);
+
+export default NeonButton;
+
+===== src\components\ui\NeonDropdown.jsx =====
+
+import React from 'react';
+import { ChevronDown } from 'lucide-react';
+
+const NeonDropdown = ({ value, options, onChange }) => {
+  return (
+    <div className="relative w-full">
+      {/* The Visual Part (What you see) */}
+      <div className="bg-slate-900 border border-cyan-500/50 rounded px-3 py-2 text-cyan-300 text-sm flex justify-between items-center shadow-[0_0_5px_rgba(34,211,238,0.2)] pointer-events-none">
+        {value}
+        <ChevronDown size={14} />
+      </div>
+
+      {/* The Functional Part (The invisible real dropdown on top) */}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-sm"
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt} className="bg-slate-900 text-cyan-300">
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
+
+export default NeonDropdown;
+
+===== src\components\ui\PulseButton.jsx =====
+
+import React from 'react';
+
+// Now accepts 'isActive' from parent instead of using local state
+const PulseButton = ({ label, onClick, isActive }) => {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        w-10 h-10 rounded border flex items-center justify-center font-bold text-xs cursor-pointer select-none
+        transition-all duration-75 ease-out
+        
+        ${isActive 
+          // HIGH STATE (Active Pulse): Bright glowing yellow, pressed in
+          ? 'bg-yellow-400 border-yellow-400 text-black shadow-[0_0_15px_#facc15] scale-95' 
+          
+          // LOW STATE (Normal): Dim
+          : 'bg-yellow-500/20 border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black shadow-[0_0_10px_rgba(250,204,21,0.2)] hover:scale-110'
+        }
+      `}
+    >
+      {label}
+    </button>
+  );
+};
+
+export default PulseButton;
+
+===== src\components\ui\ToggleSwitch.jsx =====
+
+import React from 'react';
+
+const ToggleSwitch = ({ label, active, onClick, subtitle }) => (
+  <div className="flex items-center justify-between mb-4 gap-4">
+    <div className="flex flex-col">
+      <span className="text-cyan-400 font-bold tracking-wider">{label}</span>
+      <span className="text-[10px] text-gray-500">{subtitle}</span>
+    </div>
+    <div onClick={onClick} className={`w-12 h-6 rounded-full cursor-pointer p-1 transition-all duration-300 ${active ? 'bg-cyan-900 shadow-[0_0_10px_#06b6d4]' : 'bg-gray-700'}`}>
+      <div className={`w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${active ? 'translate-x-6 bg-cyan-400 shadow-[0_0_8px_#22d3ee]' : 'translate-x-0 bg-gray-400'}`} />
+    </div>
+  </div>
+);
+
+export default ToggleSwitch;
+
+===== src\utils\CharMap.js =====
+
+// The "Hustle" Font Map
+// Format: Column-Major (5 bytes per char, 8 bits per byte)
+export const Font5x7 = [
+    [0, 0, 0, 0, 0],
+    [62, 91, 79, 91, 62],
+    [62, 107, 79, 107, 62],
+    [28, 62, 124, 62, 28],
+    [24, 60, 126, 60, 24],
+    [28, 87, 125, 87, 28],
+    [28, 94, 127, 94, 28],
+    [0, 24, 60, 24, 0],
+    [255, 231, 195, 231, 255],
+    [0, 24, 36, 24, 0],
+    [255, 231, 219, 231, 255],
+    [48, 72, 58, 6, 14],
+    [38, 41, 121, 41, 38],
+    [64, 127, 5, 5, 7],
+    [64, 127, 5, 37, 63],
+    [90, 60, 231, 60, 90],
+    [127, 62, 28, 28, 8],
+    [8, 28, 28, 62, 127],
+    [20, 34, 127, 34, 20],
+    [95, 95, 0, 95, 95],
+    [6, 9, 127, 1, 127],
+    [0, 102, 137, 149, 106],
+    [96, 96, 96, 96, 96],
+    [148, 162, 255, 162, 148],
+    [8, 4, 126, 4, 8],
+    [16, 32, 126, 32, 16],
+    [8, 8, 42, 28, 8],
+    [8, 28, 42, 8, 8],
+    [30, 16, 16, 16, 16],
+    [12, 30, 12, 30, 12],
+    [48, 56, 62, 56, 48],
+    [6, 14, 62, 14, 6],
+    [0, 0, 0, 0, 0],
+    [0, 0, 95, 0, 0],
+    [0, 7, 0, 7, 0],
+    [20, 127, 20, 127, 20],
+    [36, 42, 127, 42, 18],
+    [35, 19, 8, 100, 98],
+    [54, 73, 86, 32, 80],
+    [0, 8, 7, 3, 0],
+    [0, 28, 34, 65, 0],
+    [0, 65, 34, 28, 0],
+    [42, 28, 127, 28, 42],
+    [8, 8, 62, 8, 8],
+    [0, 128, 112, 48, 0],
+    [8, 8, 8, 8, 8],
+    [0, 0, 96, 96, 0],
+    [32, 16, 8, 4, 2],
+    [62, 81, 73, 69, 62],
+    [0, 66, 127, 64, 0],
+    [114, 73, 73, 73, 70],
+    [33, 65, 73, 77, 51],
+    [24, 20, 18, 127, 16],
+    [39, 69, 69, 69, 57],
+    [60, 74, 73, 73, 49],
+    [65, 33, 17, 9, 7],
+    [54, 73, 73, 73, 54],
+    [70, 73, 73, 41, 30],
+    [0, 0, 20, 0, 0],
+    [0, 64, 52, 0, 0],
+    [0, 8, 20, 34, 65],
+    [20, 20, 20, 20, 20],
+    [0, 65, 34, 20, 8],
+    [2, 1, 89, 9, 6],
+    [62, 65, 93, 89, 78],
+    [124, 18, 17, 18, 124],
+    [127, 73, 73, 73, 54],
+    [62, 65, 65, 65, 34],
+    [127, 65, 65, 65, 62],
+    [127, 73, 73, 73, 65],
+    [127, 9, 9, 9, 1],
+    [62, 65, 65, 81, 115],
+    [127, 8, 8, 8, 127],
+    [0, 65, 127, 65, 0],
+    [32, 64, 65, 63, 1],
+    [127, 8, 20, 34, 65],
+    [127, 64, 64, 64, 64],
+    [127, 2, 28, 2, 127],
+    [127, 4, 8, 16, 127],
+    [62, 65, 65, 65, 62],
+    [127, 9, 9, 9, 6],
+    [62, 65, 81, 33, 94],
+    [127, 9, 25, 41, 70],
+    [38, 73, 73, 73, 50],
+    [3, 1, 127, 1, 3],
+    [63, 64, 64, 64, 63],
+    [31, 32, 64, 32, 31],
+    [63, 64, 56, 64, 63],
+    [99, 20, 8, 20, 99],
+    [3, 4, 120, 4, 3],
+    [97, 89, 73, 77, 67],
+    [0, 127, 65, 65, 65],
+    [2, 4, 8, 16, 32],
+    [0, 65, 65, 65, 127],
+    [4, 2, 1, 2, 4],
+    [64, 64, 64, 64, 64],
+    [0, 3, 7, 8, 0],
+    [32, 84, 84, 120, 64],
+    [127, 40, 68, 68, 56],
+    [56, 68, 68, 68, 40],
+    [56, 68, 68, 40, 127],
+    [56, 84, 84, 84, 24],
+    [0, 8, 126, 9, 2],
+    [24, 164, 164, 156, 120],
+    [127, 8, 4, 4, 120],
+    [0, 68, 125, 64, 0],
+    [32, 64, 64, 61, 0],
+    [127, 16, 40, 68, 0],
+    [0, 65, 127, 64, 0],
+    [124, 4, 120, 4, 120],
+    [124, 8, 4, 4, 120],
+    [56, 68, 68, 68, 56],
+    [252, 24, 36, 36, 24],
+    [24, 36, 36, 24, 252],
+    [124, 8, 4, 4, 8],
+    [72, 84, 84, 84, 36],
+    [4, 4, 63, 68, 36],
+    [60, 64, 64, 32, 124],
+    [28, 32, 64, 32, 28],
+    [60, 64, 48, 64, 60],
+    [68, 40, 16, 40, 68],
+    [76, 144, 144, 144, 124],
+    [68, 100, 84, 76, 68],
+    [0, 8, 54, 65, 0],
+    [0, 0, 119, 0, 0],
+    [0, 65, 54, 8, 0],
+    [2, 1, 2, 4, 2],
+    [60, 38, 35, 38, 60],
+    [30, 161, 161, 97, 18],
+    [58, 64, 64, 32, 122],
+    [56, 84, 84, 85, 89],
+    [33, 85, 85, 121, 65],
+    [33, 84, 84, 120, 65],
+    [33, 85, 84, 120, 64],
+    [32, 84, 85, 121, 64],
+    [12, 30, 82, 114, 18],
+    [57, 85, 85, 85, 89],
+    [57, 84, 84, 84, 89],
+    [57, 85, 84, 84, 88],
+    [0, 0, 69, 124, 65],
+    [0, 2, 69, 125, 66],
+    [0, 1, 69, 124, 64],
+    [240, 41, 36, 41, 240],
+    [240, 40, 37, 40, 240],
+    [124, 84, 85, 69, 0],
+    [32, 84, 84, 124, 84],
+    [124, 10, 9, 127, 73],
+    [50, 73, 73, 73, 50],
+    [50, 72, 72, 72, 50],
+    [50, 74, 72, 72, 48],
+    [58, 65, 65, 33, 122],
+    [58, 66, 64, 32, 120],
+    [0, 157, 160, 160, 125],
+    [57, 68, 68, 68, 57],
+    [61, 64, 64, 64, 61],
+    [60, 36, 255, 36, 36],
+    [72, 126, 73, 67, 102],
+    [43, 47, 252, 47, 43],
+    [255, 9, 41, 246, 32],
+    [192, 136, 126, 9, 3],
+    [32, 84, 84, 121, 65],
+    [0, 0, 68, 125, 65],
+    [48, 72, 72, 74, 50],
+    [56, 64, 64, 34, 122],
+    [0, 122, 10, 10, 114],
+    [125, 13, 25, 49, 125],
+    [38, 41, 41, 47, 40],
+    [38, 41, 41, 41, 38],
+    [48, 72, 77, 64, 32],
+    [56, 8, 8, 8, 8],
+    [8, 8, 8, 8, 56],
+    [47, 16, 200, 172, 186],
+    [47, 16, 40, 52, 250],
+    [0, 0, 123, 0, 0],
+    [8, 20, 42, 20, 34],
+    [34, 20, 42, 20, 8],
+    [170, 0, 85, 0, 170],
+    [170, 85, 170, 85, 170],
+    [0, 0, 0, 255, 0],
+    [16, 16, 16, 255, 0],
+    [20, 20, 20, 255, 0],
+    [16, 16, 255, 0, 255],
+    [16, 16, 240, 16, 240],
+    [20, 20, 20, 252, 0],
+    [20, 20, 247, 0, 255],
+    [0, 0, 255, 0, 255],
+    [20, 20, 244, 4, 252],
+    [20, 20, 23, 16, 31],
+    [16, 16, 31, 16, 31],
+    [20, 20, 20, 31, 0],
+    [16, 16, 16, 240, 0],
+    [0, 0, 0, 31, 16],
+    [16, 16, 16, 31, 16],
+    [16, 16, 16, 240, 16],
+    [0, 0, 0, 255, 16],
+    [16, 16, 16, 16, 16],
+    [16, 16, 16, 255, 16],
+    [0, 0, 0, 255, 20],
+    [0, 0, 255, 0, 255],
+    [0, 0, 31, 16, 23],
+    [0, 0, 252, 4, 244],
+    [20, 20, 23, 16, 23],
+    [20, 20, 244, 4, 244],
+    [0, 0, 255, 0, 247],
+    [20, 20, 20, 20, 20],
+    [20, 20, 247, 0, 247],
+    [20, 20, 20, 23, 20],
+    [16, 16, 31, 16, 31],
+    [20, 20, 20, 244, 20],
+    [16, 16, 240, 16, 240],
+    [0, 0, 31, 16, 31],
+    [0, 0, 0, 31, 20],
+    [0, 0, 0, 252, 20],
+    [0, 0, 240, 16, 240],
+    [16, 16, 255, 16, 255],
+    [20, 20, 20, 255, 20],
+    [16, 16, 16, 31, 0],
+    [0, 0, 0, 240, 16],
+    [255, 255, 255, 255, 255],
+    [240, 240, 240, 240, 240],
+    [255, 255, 255, 0, 0],
+    [0, 0, 0, 255, 255],
+    [15, 15, 15, 15, 15],
+    [56, 68, 68, 56, 68],
+    [124, 42, 42, 62, 20],
+    [126, 2, 2, 6, 6],
+    [2, 126, 2, 126, 2],
+    [99, 85, 73, 65, 99],
+    [56, 68, 68, 60, 4],
+    [64, 126, 32, 30, 32],
+    [6, 2, 126, 2, 2],
+    [153, 165, 231, 165, 153],
+    [28, 42, 73, 42, 28],
+    [76, 114, 1, 114, 76],
+    [48, 74, 77, 77, 48],
+    [48, 72, 120, 72, 48],
+    [188, 98, 90, 70, 61],
+    [62, 73, 73, 73, 0],
+    [126, 1, 1, 1, 126],
+    [42, 42, 42, 42, 42],
+    [68, 68, 95, 68, 68],
+    [64, 81, 74, 68, 64],
+    [64, 68, 74, 81, 64],
+    [0, 0, 255, 1, 3],
+    [224, 128, 255, 0, 0],
+    [8, 8, 107, 107, 8],
+    [54, 18, 54, 36, 54],
+    [6, 15, 9, 15, 6],
+    [0, 0, 24, 24, 0],
+    [0, 0, 16, 16, 0],
+    [48, 64, 255, 1, 1],
+    [0, 31, 1, 1, 30],
+    [0, 25, 29, 23, 18],
+    [0, 60, 60, 60, 60],
+    [0, 0, 0, 0, 0]
+];
+
+===== src\utils\LcdCommands.js =====
+
+// utils/LcdCommands.js (Adjusted to match LCD function set options)
+
+// ONE-TIME ACTIONS (Triggers)
+export const ACTION_COMMANDS = [
+  { label: "Clear Display", hex: 0x01 },
+  { label: "Return Home", hex: 0x02 },
+  { label: "Move Cursor Left", hex: 0x10 },
+  { label: "Move Cursor Right", hex: 0x14 },
+  { label: "Shift Screen Left", hex: 0x18 },
+  { label: "Shift Screen Right", hex: 0x1C }
+];
+
+// STATE GROUPS (Configurations)
+export const ENTRY_MODES = [
+  { label: "Left to Right (Inc)", hex: 0x06 },
+  { label: "Right to Left (Dec)", hex: 0x04 },
+];
+
+export const CURSOR_MODES = [
+  { label: "Hidden", hex: 0x0C },
+  { label: "Underline", hex: 0x0E },
+  { label: "Blinking Block", hex: 0x0F },
+];
+
+// NOTE: These HEX values below are for reference only.
+// The final FUNCTION SET COMMAND will be calculated by LcdController.
+export const BUS_MODES = [
+  { label: "4-Bit Mode", referenceHex: 0x20 }, // DL=0 (4-Bit) is bit 4
+  { label: "8-Bit Mode", referenceHex: 0x30 }, // DL=1 (8-Bit) is bit 4/5
+];
+
+export const DISPLAY_POWER = [
+  { label: "Display ON", hex: 0x0C },
+  { label: "Display OFF", hex: 0x08 },
+];
+
+export const LINE_MODES = [
+  { label: "2 Lines (16x2)", referenceHex: 0x08 }, // N=1 (2-Line) is bit 3
+  { label: "1 Line (16x1)", referenceHex: 0x00 }, // N=0 (1-Line) is bit 3
+];
+
+===== src\utils\useLcdSim.js =====
+
+import { useState } from 'react';
+
+// NOTE: Assuming LcdCommands and other necessary utilities are available in the scope
+// If you need to access specific constants (like CURSOR_HIDDEN_HEX), you must import them.
+// import { CURSOR_HIDDEN_HEX } from './LcdCommands';
+
+// Helper to convert hex string to integer
+const hexStringToInt = (hexStr) => parseInt(hexStr.replace('0x', ''), 16);
+
+// --- CORE LOGIC: FUNCTION SET COMMAND CALCULATION ---
+const getFunctionSetCommand = (width, lines) => {
+  const is2Line = lines.includes('2 Lines');
+  const is8Bit = width.includes('8-Bit');
+
+  if (is8Bit && is2Line) return '0x38';
+  if (is8Bit && !is2Line) return '0x30';
+  if (!is8Bit && is2Line) return '0x28';
+  if (!is8Bit && !is2Line) return '0x20';
+
+  return '0x??';
+};
+
+// This is your new Custom Hook
+export const useLcdSim = () => {
+
+  // --- STATE (Moved from LcdController) ---
+  const [logs, setLogs] = useState(["> Initializing LCD...", "> Mode set to 4-Bit.", "> Backlight turned ON."]);
+  const [gpio, setGpio] = useState({ rs: true, rw: false });
+  const [enState, setEnState] = useState(false);
+  const [dataBus, setDataBus] = useState([0, 0, 0, 0, 1, 1, 0, 0]);
+  const [inputValue, setInputValue] = useState("");
+  const [inputFormat, setInputFormat] = useState("Hex");
+  const [backlight, setBacklight] = useState("ON");
+  const [lcdRows, setLcdRows] = useState({
+     row1: Array(16).fill(32),
+     row2: Array(16).fill(32)
+  });
+
+  // Configuration States
+  const [busWidth, setBusWidth] = useState('4-Bit Mode');
+  const [lineCount, setLineCount] = useState('2 Lines (16x2)');
+  const [entryMode, setEntryMode] = useState('Left to Right (Inc)');
+  const [displayVisible, setDisplayVisible] = useState('Display OFF');
+  const [cursorStyle, setCursorStyle] = useState('Hidden');
+  const [cursorRow, setCursorRow] = useState(0);
+  const [cursorCol, setCursorCol] = useState(0);
+
+  // --- UTILITY HANDLERS ---
+
+  const addLog = (msg) => setLogs(prev => [...prev.slice(-4), `> ${msg}`]);
+
+  const sendCommand = (hexCode) => {
+    // If input is already a hex string, convert to integer first
+    const hexVal = typeof hexCode === 'string' ? hexStringToInt(hexCode) : hexCode;
+    const hexStr = '0x' + hexVal.toString(16).toUpperCase().padStart(2,'0');
+    addLog(`Sending Command: ${hexStr}`);
+  };
+
+  // --- INTERACTION HANDLERS (Needed by GpioPanel, DataPin, PulseButton, Data Input) ---
+
+  // HANDLER: Toggle Data Pin (used by DataPin buttons)
+  const toggleDataBit = (index) => {
+    const newBus = [...dataBus];
+    newBus[index] = newBus[index] === 1 ? 0 : 1;
+    setDataBus(newBus);
+  };
+
+  // HANDLER: Manual EN Switch (Toggle)
+  const handleManualEn = () => {
+    const newState = !enState;
+    setEnState(newState);
+    addLog(`EN Line set to ${newState ? 'HIGH' : 'LOW'}`);
+  };
+
+  // HANDLER: Handle EN Pulse
+  const handleEnPulse = () => {
+    setEnState(true);
+    addLog("Pulse: EN (High -> Low)");
+    setTimeout(() => { setEnState(false); }, 200);
+  };
+
+  // HANDLER: Handle Backlight Change
+  const handleBacklightChange = (newStatus) => {
+    setBacklight(newStatus);
+    addLog(`Backlight turned ${newStatus}`);
+  };
+
+  // HANDLER: Handle Send (Data Register)
+  const handleSend = () => {
+    if(!inputValue) return;
+    addLog(`Sending ${inputFormat}: '${inputValue}'...`);
+    setInputValue("");
+  };
+
+  // HANDLER: Handle Cell Click (Set DDRAM Address command)
+  const handleCellClick = (row, col) => {
+    const rowOffset = row === 0 ? 0x00 : 0x40;
+    const ddramAddress = 0x80 | rowOffset | col;
+    const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
+
+    addLog(`Cursor set to: R${row}, C${col}`);
+    sendCommand(hexCommand);
+  };
+
+
+  // THE MAIN CONFIGURATION HANDLER (Used by StatePanel)
+  const handleConfigChange = ({ newConfig, changedProp, commands }) => {
+    // 1. Update states via their setters
+    setBusWidth(newConfig.busWidth);
+    setLineCount(newConfig.lineCount);
+    setEntryMode(newConfig.entryMode);
+    setDisplayVisible(newConfig.displayVisible);
+    setCursorStyle(newConfig.cursorStyle);
+
+    if (changedProp === 'busWidth' || changedProp === 'lineCount') {
+        const functionSetHexStr = getFunctionSetCommand(newConfig.busWidth, newConfig.lineCount);
+        addLog(`Function Set determined by: ${newConfig.busWidth} + ${newConfig.lineCount}`);
+        sendCommand(functionSetHexStr);
+    } else if (commands && commands.length > 0) {
+        commands.forEach(cmd => {
+            sendCommand(cmd);
+        });
+    }
+  };
+
+
+  // --- RETURN OBJECT (What LcdController uses) ---
+  return {
+    // Current State values (Data for rendering)
+    state: {
+      logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
+      busWidth, lineCount, entryMode, displayVisible, cursorStyle
+    },
+    // Setters (Data for modifying state/input)
+    setters: {
+      setGpio, setInputFormat, setInputValue, setBacklight, // setBacklight was missing
+    },
+    // Handler functions (Logic/Actions)
+    handlers: {
+      addLog, sendCommand, handleConfigChange, handleCellClick,
+      toggleDataBit, handleManualEn, handleEnPulse, handleBacklightChange, handleSend
+    },
+    // Utility for the Command Logic
+    utils: {
+      getFunctionSetCommand,
+    }
+  };
+};

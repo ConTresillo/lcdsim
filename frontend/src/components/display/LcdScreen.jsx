@@ -18,7 +18,7 @@ const MountingHole = ({ position }) => (
 );
 
 // --- 2. Main LcdScreen Component ---
-// ✅ UPDATED PROPS: Added cursorRow, cursorCol, and cursorStyle
+// ✅ ADDED: cursorRow, cursorCol, and cursorStyle props back
 const LcdScreen = ({
     row1Data,
     row2Data,

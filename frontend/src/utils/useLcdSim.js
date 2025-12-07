@@ -100,6 +100,10 @@ export const useLcdSim = () => {
 
     addLog(`Cursor set to: R${row}, C${col}`);
     sendCommand(hexCommand);
+
+    // ✅ CORRECTION: ADDED STATE TRACKING
+    setCursorRow(row);
+    setCursorCol(col);
   };
 
 
@@ -129,7 +133,9 @@ export const useLcdSim = () => {
     // Current State values (Data for rendering)
     state: {
       logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
-      busWidth, lineCount, entryMode, displayVisible, cursorStyle
+      busWidth, lineCount, entryMode, displayVisible, cursorStyle,
+      // ✅ EXPOSING CURSOR POSITION STATE
+      cursorRow, cursorCol
     },
     // Setters (Data for modifying state/input)
     setters: {

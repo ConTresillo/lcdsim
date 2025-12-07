@@ -42,9 +42,9 @@ const Terminal = ({ logs }) => {
          ))}
 
          {/* 3. BLINKING CURSOR & SCROLL ANCHOR */}
+         {/* --- REMOVED: Blinking Cursor Element --- */}
          <div className="flex items-center text-cyan-500 mt-2 pl-2" ref={bottomRef}>
             <span className="mr-3 text-cyan-700 text-lg">{'>'}</span>
-            <span className="animate-pulse bg-cyan-500 w-3 h-5 block shadow-[0_0_5px_#00F0FF]"></span>
          </div>
       </div>
     </div>
