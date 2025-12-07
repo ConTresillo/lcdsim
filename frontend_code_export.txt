@@ -214,8 +214,8 @@ createRoot(document.getElementById('root')).render(
 import React, { useState, memo } from 'react';
 import { Font5x7 } from '../../utils/CharMap';
 
-// REMOVED: isActiveCursor, cursorStyle props
-const Cell = ({ char, onCellClick, row, col }) => {
+// ✅ ADDED: isActiveCursor and cursorStyle props
+const Cell = ({ char, onCellClick, row, col, isActiveCursor, cursorStyle }) => {
 
   const [isHovered, setIsHovered] = useState(false);
 
@@ -226,7 +226,11 @@ const Cell = ({ char, onCellClick, row, col }) => {
   };
 
   // --- CURSOR LOGIC VARIABLES ---
-  // --- REMOVED all cursor-related variables and animationClass ---
+  // The cursor is visible if it's the active cell AND the style is NOT Hidden.
+  const isCursorVisible = isActiveCursor && cursorStyle !== 'Hidden';
+
+  // Note: Since you asked for an underline effect for *any* non-hidden style,
+  // we use isCursorVisible directly to light up row 7.
 
   // 1. Get the ASCII code (0-255)
   const charCode = char ? char.charCodeAt(0) : 32;
@@ -241,7 +245,6 @@ const Cell = ({ char, onCellClick, row, col }) => {
             flex flex-col gap-[1px]
             cursor-pointer 
             transition-transform duration-75 ease-out
-            
             
             ${isHovered ? 'scale-[1.1] bg-slate-800 rounded-sm' : 'scale-100'}
         `}
@@ -261,14 +264,18 @@ const Cell = ({ char, onCellClick, row, col }) => {
             let pixelClasses = '';
 
             // --- DEFINITIVE PIXEL RENDERING LOGIC ---
-            // --- REMOVED SCENARIO 1 & 2 (Blinking/Underline Cursor) ---
 
-            if (isCharacterOn) {
-                // SCENARIO 3: STANDARD CHARACTER PIXEL
+            if (isCursorVisible && rowPixel === 7) {
+                // SCENARIO 1: UNDERLINE CURSOR (Highest priority - only last row, index 7)
+                // Forces the last row pixel (row 7) ON if cursor is visible.
+                pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
+            }
+            else if (isCharacterOn) {
+                // SCENARIO 2: STANDARD CHARACTER PIXEL
                 pixelClasses = 'bg-cyan-300 shadow-[0_0_4px_#22d3ee] opacity-100';
             }
             else {
-                // SCENARIO 4: STANDARD OFF PIXEL (Empty space)
+                // SCENARIO 3: STANDARD OFF PIXEL (Empty space)
                 pixelClasses = 'bg-[#0f1f22] border border-cyan-900/20 opacity-100';
             }
 
@@ -310,12 +317,15 @@ const MountingHole = ({ position }) => (
 );
 
 // --- 2. Main LcdScreen Component ---
-// ✅ UPDATED PROPS: Removed cursorRow, cursorCol, and cursorStyle
+// ✅ ADDED: cursorRow, cursorCol, and cursorStyle props back
 const LcdScreen = ({
     row1Data,
     row2Data,
     backlight,
     onCellClick,
+    cursorRow,
+    cursorCol,
+    cursorStyle
 }) => {
   const r1 = row1Data && row1Data.length === 16 ? row1Data : Array(16).fill(32);
   const r2 = row2Data && row2Data.length === 16 ? row2Data : Array(16).fill(32);
@@ -391,7 +401,9 @@ const LcdScreen = ({
                         row={0} // Row index 0
                         col={i} // Column index 0-15
                         onCellClick={onCellClick}
-                        // ✅ REMOVED: isActiveCursor and cursorStyle props
+                        // ✅ PROPS PASSED TO CELL
+                        isActiveCursor={cursorRow === 0 && cursorCol === i}
+                        cursorStyle={cursorStyle}
                     />
                 ))}
             </div>
@@ -405,7 +417,9 @@ const LcdScreen = ({
                         row={1} // Row index 1
                         col={i} // Column index 0-15
                         onCellClick={onCellClick}
-                        // ✅ REMOVED: isActiveCursor and cursorStyle props
+                        // ✅ PROPS PASSED TO CELL
+                        isActiveCursor={cursorRow === 1 && cursorCol === i}
+                        cursorStyle={cursorStyle}
                     />
                 ))}
             </div>
@@ -1534,6 +1548,10 @@ export const useLcdSim = () => {
 
     addLog(`Cursor set to: R${row}, C${col}`);
     sendCommand(hexCommand);
+
+    // ✅ CORRECTION: ADDED STATE TRACKING
+    setCursorRow(row);
+    setCursorCol(col);
   };
 
 
@@ -1563,7 +1581,9 @@ export const useLcdSim = () => {
     // Current State values (Data for rendering)
     state: {
       logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
-      busWidth, lineCount, entryMode, displayVisible, cursorStyle
+      busWidth, lineCount, entryMode, displayVisible, cursorStyle,
+      // ✅ EXPOSING CURSOR POSITION STATE
+      cursorRow, cursorCol
     },
     // Setters (Data for modifying state/input)
     setters: {

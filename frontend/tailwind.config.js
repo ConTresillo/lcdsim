@@ -19,7 +19,24 @@ export default {
       },
 
       // ✅ CURSOR BLINKING FIX: ADD KEYFRAMES AND ANIMATION
-      // --- REMOVED: keyframes and animation for pulse ---
+        keyframes: {
+        // FIX: Toggles background-color (B to A) instead of opacity
+        pulse: {
+          '0%, 100%': {
+            // State B (ON/Bright Cyan)
+            'background-color': '#4DD0E1', // Approximate bg-cyan-300
+            'box-shadow': '0 0 4px #22d3ee', // Keep the glow when ON
+          },
+          '50%': {
+            // State A (OFF/Dark Gray/Blue)
+            'background-color': '#0f1f22', // The dark background color
+            'box-shadow': 'none',          // Remove glow when OFF
+          },
+        }
+      },
+      animation: {
+        pulse: 'pulse 1s ease-in-out infinite',
+      }
     },
   },
   plugins: [],
