@@ -725,6 +725,8 @@ const GpioPanel = ({ gpio, setGpio, backlight, setBacklight, enState, onManualEn
     <h3 className="text-neon mb-6 font-bold border-b border-white/10 pb-2">GPIO SWITCHES</h3>
 
     <ToggleSwitch label="RS" subtitle="Register Select" active={gpio.rs} onClick={() => setGpio({...gpio, rs: !gpio.rs})} />
+
+    {/* R/W Switch: Toggles the gpio.rw state */}
     <ToggleSwitch label="RW" subtitle="Read/Write" active={gpio.rw} onClick={() => setGpio({...gpio, rw: !gpio.rw})} />
 
     {/* EN SWITCH (Linked to Shared State) */}
@@ -771,8 +773,6 @@ import NeonButton from '../ui/NeonButton';
 import NeonDropdown from '../ui/NeonDropdown';
 import PulseButton from '../ui/PulseButton';
 
-// NOTE: All prior logic functions (hexStringToInt, getFunctionSetCommand, etc.) are now inside useLcdSim.js
-
 const LcdController = () => {
 
   // --- 1. USE CUSTOM HOOK TO GET ALL STATE AND HANDLERS ---
@@ -786,8 +786,7 @@ const LcdController = () => {
   const {
     logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
     busWidth, lineCount, entryMode, displayVisible, cursorStyle,
-    // ✅ NEW: Cursor position state pulled from the hook
-    cursorRow, cursorCol
+    cursorRow, cursorCol, ddramOffset // <-- ADDED ddramOffset
   } = state;
 
   const {
@@ -796,17 +795,30 @@ const LcdController = () => {
   } = handlers;
 
   const {
-    setGpio, setInputFormat, setInputValue, setBacklight // Added setBacklight
+    setGpio, setInputFormat, setInputValue, setBacklight
   } = setters;
 
 
-  // --- DYNAMIC THEME CALCULATIONS (Using state values from the hook) ---
+  // --- DYNAMIC LOGIC: ADDRESS DECODING & UI THEME ---
   const isDataMode = gpio.rs;
-  const borderColor = isDataMode ? "border-cyan-500/30" : "border-yellow-500/30";
-  const titleColor  = isDataMode ? "text-cyan-400" : "text-yellow-500";
-  const subTextColor = isDataMode ? "text-cyan-600" : "text-yellow-700";
-  const labelText   = isDataMode ? "DATA REGISTER (DR)" : "INSTRUCTION REGISTER (IR)";
-  const statusText  = isDataMode ? "RS=1 (HIGH)" : "RS=0 (LOW)";
+  const isReadMode = gpio.rw;
+
+  // Determine Register Panel UI colors and labels
+  let borderColor, titleColor, subTextColor, labelText, statusText;
+
+  if (isReadMode) {
+    borderColor = "border-yellow-700/50";
+    titleColor = "text-yellow-600";
+    subTextColor = "text-yellow-800";
+    labelText = isDataMode ? "DATA READ (DDRAM)" : "STATUS READ (BUSY FLAG)";
+    statusText = `R/W=1 (HIGH), RS=${isDataMode ? '1' : '0'}`;
+  } else {
+    borderColor = isDataMode ? "border-cyan-500/30" : "border-yellow-500/30";
+    titleColor = isDataMode ? "text-cyan-400" : "text-yellow-500";
+    subTextColor = isDataMode ? "text-cyan-600" : "text-yellow-700";
+    labelText = isDataMode ? "DATA REGISTER (DR)" : "INSTRUCTION REGISTER (IR)";
+    statusText = `R/W=0 (LOW), RS=${isDataMode ? '1' : '0'}`;
+  }
 
 
   // --- COMPONENT RENDER LOGIC ---
@@ -851,13 +863,11 @@ const LcdController = () => {
 
   // --- START OF STRUCTURAL RENDER ---
   return (
-    // Outer Container: Max width for the whole simulator panel, consumes full height.
     <div className="max-w-6xl w-full h-full">
 
-        {/* Main Grid: Takes available width and manages content flow for the columns */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full h-full">
 
-            {/* LEFT COLUMN: Fixed content height relative to container. Scrollable if content overflows. */}
+            {/* LEFT COLUMN: GPIO Panel */}
             <div className="lg:col-span-3 min-w-0 flex flex-col h-full overflow-y-auto">
                 <GpioPanel
                     gpio={gpio}
@@ -869,7 +879,7 @@ const LcdController = () => {
                 />
             </div>
 
-            {/* CENTER COLUMN: Allow internal vertical scroll for logs/terminal. */}
+            {/* CENTER COLUMN: LCD Screen, DataPins, Terminal */}
             <div className="lg:col-span-6 flex flex-col gap-6 items-center min-w-0 h-full overflow-y-auto">
                 <div className="w-full flex justify-center transition-all duration-500 flex-shrink-0">
                     <LcdScreen
@@ -877,11 +887,10 @@ const LcdController = () => {
                         row2Data={lcdRows.row2}
                         backlight={backlight}
                         onCellClick={handleCellClick}
-
-                        // ✅ PROPS PASSED TO LCD SCREEN FOR CURSOR RENDERING
                         cursorRow={cursorRow}
                         cursorCol={cursorCol}
                         cursorStyle={cursorStyle}
+                        ddramOffset={ddramOffset} // <-- PASSED ddramOffset
                     />
                 </div>
 
@@ -892,6 +901,7 @@ const LcdController = () => {
                             label={`D${bitIndex}`}
                             active={dataBus[bitIndex] === 1}
                             onClick={() => toggleDataBit(bitIndex)}
+                            isDisabled={isReadMode} // <-- DISABLED R/W=1
                         />
                     ))}
                     <div className="w-2"></div>
@@ -905,19 +915,20 @@ const LcdController = () => {
                 <Terminal logs={logs}/>
             </div>
 
-            {/* RIGHT COLUMN: Allow internal vertical scroll for expanding menus. */}
+            {/* RIGHT COLUMN: Register Panel and State Panel - Using flex-1 for equal height */}
             <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative h-full overflow-y-auto z-40">
                 {/* UNIFIED REGISTER PANEL */}
                 <div className={`
                     flex-shrink-0
                     bg-white/5 backdrop-blur-md border rounded-xl p-6 w-full relative z-30
-                    min-h-[16rem] 
+                    flex-1 /* Flex-1 for equal height */
+                    min-h-[12rem] 
                     flex flex-col
                     transition-colors duration-500 ease-in-out
                     ${borderColor}
                 `}>
 
-                    {/* Header (Animates Color) */}
+                    {/* Header (The Decoder Output Label) */}
                     <div
                         className={`flex justify-between items-center mb-4 border-b pb-2 transition-colors duration-500 ${borderColor}`}>
                         <label
@@ -929,44 +940,63 @@ const LcdController = () => {
                     </span>
                     </div>
 
-                    {/* Dynamic Body Content - Framer Motion for Smooth Swap */}
+                    {/* Dynamic Body Content - Swaps based on R/W and RS state */}
                     <div className="flex-1 flex flex-col justify-center">
                         <AnimatePresence mode="wait" initial={false}>
-                            {isDataMode ? (
+                            {isReadMode ? (
+                                // Read Mode Panel (R/W=1): Input disabled, simulating status/data output
                                 <motion.div
-                                    key="data"
+                                    key="read"
                                     layout
                                     initial={{opacity: 0, y: 10}}
                                     animate={{opacity: 1, y: 0}}
                                     exit={{opacity: 0, y: -10}}
                                     transition={{duration: 0.3}}
-                                    className="w-full"
+                                    className="w-full text-center text-gray-500 text-sm font-mono flex flex-col items-center justify-center h-full" // Use h-full to fill flex-1 space
                                 >
-                                    {DataInputUI}
+                                    <span className="text-xl text-yellow-500 mb-2">READ MODE ACTIVE</span>
+                                    <span>IR/DR Inputs Disabled</span>
+                                    <span>Data Bus outputs Status/Data</span>
                                 </motion.div>
                             ) : (
-                                <motion.div
-                                    key="command"
-                                    layout
-                                    initial={{opacity: 0, y: 10}}
-                                    animate={{opacity: 1, y: 0}}
-                                    exit={{opacity: 0, y: -10}}
-                                    transition={{duration: 0.3}}
-                                    className="w-full"
-                                >
-                                    {CommandInputUI}
-                                </motion.div>
+                                // Write Mode Panel (R/W=0): Input enabled
+                                isDataMode ? (
+                                    <motion.div
+                                        key="data"
+                                        layout
+                                        initial={{opacity: 0, y: 10}}
+                                        animate={{opacity: 1, y: 0}}
+                                        exit={{opacity: 0, y: -10}}
+                                        transition={{duration: 0.3}}
+                                        className="w-full"
+                                    >
+                                        {DataInputUI}
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="command"
+                                        layout
+                                        initial={{opacity: 0, y: 10}}
+                                        animate={{opacity: 1, y: 0}}
+                                        exit={{opacity: 0, y: -10}}
+                                        transition={{duration: 0.3}}
+                                        className="w-full"
+                                    >
+                                        {CommandInputUI}
+                                    </motion.div>
+                                )
                             )}
                         </AnimatePresence>
                     </div>
 
                 </div>
 
-                {/* STATE PANEL (Fixed below) */}
-                <div className="relative z-10 flex-shrink-0">
+                {/* STATE PANEL */}
+                <div className="relative z-10 flex-shrink-0 flex-1"> {/* Flex-1 for equal height */}
                     <StatePanel
                         config={{busWidth, lineCount, entryMode, displayVisible, cursorStyle}}
                         onConfigChange={handleConfigChange}
+                        isInputDisabled={isReadMode} // <-- DISABLED R/W=1
                     />
                 </div>
             </div>
@@ -1008,7 +1038,7 @@ const CURSOR_HIDDEN_LABEL = 'Hidden';
 const DISPLAY_ON_HEX = 0x0C;
 const CURSOR_HIDDEN_HEX = 0x0C; // 0x0C means Display ON, Cursor OFF (Hidden)
 
-const StatePanel = ({ config, onConfigChange }) => {
+const StatePanel = ({ config, onConfigChange, isInputDisabled }) => { // <--- ADDED isInputDisabled
     // INTERNAL STATE: Use internal state for smooth UI interaction
     const [entryLabel, setEntryLabel] = useState(config.entryMode);
     const [cursorLabel, setCursorLabel] = useState(config.cursorStyle);
@@ -1031,6 +1061,8 @@ const StatePanel = ({ config, onConfigChange }) => {
 
     // --- UNIFIED DROPDOWN HANDLER: Incorporating Constraints ---
     const handleDropdownChange = (newValue, setter, propertyName, commandList = null) => {
+
+        if (isInputDisabled) return; // <--- IGNORE EVENT IF DISABLED
 
         // Use local state values for calculating constraints *before* updating them
         let newDisplayLabel = displayLabel;
@@ -1113,6 +1145,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={displayLabel}
                         options={DISPLAY_POWER.map(d => d.label)}
                         onChange={(val) => handleDropdownChange(val, setDisplayLabel, 'displayVisible', DISPLAY_POWER)}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -1123,6 +1156,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={entryLabel}
                         options={ENTRY_MODES.map(e => e.label)}
                         onChange={(val) => handleDropdownChange(val, setEntryLabel, 'entryMode', ENTRY_MODES)}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -1133,6 +1167,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={cursorLabel}
                         options={CURSOR_MODES.map(c => c.label)}
                         onChange={(val) => handleDropdownChange(val, setCursorLabel, 'cursorStyle', CURSOR_MODES)}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -1143,6 +1178,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={busLabel}
                         options={BUS_MODES.map(b => b.label)}
                         onChange={(val) => handleDropdownChange(val, setBusLabel, 'busWidth')}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -1153,6 +1189,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={lineLabel}
                         options={LINE_MODES.map(l => l.label)}
                         onChange={(val) => handleDropdownChange(val, setLineLabel, 'lineCount')}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -1167,21 +1204,23 @@ export default StatePanel;
 
 import React from 'react';
 
-const DataPin = ({ label, active, onClick }) => (
+const DataPin = ({ label, active, onClick, isDisabled = false }) => ( // <--- ACCEPT isDisabled
   <div
-    onClick={onClick}
+    onClick={isDisabled ? null : onClick} // <--- DISABLE CLICK HANDLER
     className={`
-      w-10 h-10 rounded border flex items-center justify-center font-mono text-sm cursor-pointer select-none
+      w-10 h-10 rounded border flex items-center justify-center font-mono text-sm select-none
       
       /* ANIMATION: Smooth 200ms speed */
       transition-all duration-75 ease-out
       
-      /* HOVER: Scale up regardless of state */
-      hover:scale-110
+      ${isDisabled 
+        ? 'cursor-not-allowed opacity-50 border-gray-700 bg-gray-800/20 text-gray-600 scale-100' // <--- DISABLED STATE
+        : 'cursor-pointer hover:scale-110' // <--- ENABLED STATE
+      }
       
       ${active 
         ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-[0_0_10px_#22d3ee] scale-110' // Active (ON)
-        : 'border-gray-700 bg-gray-800/20 text-gray-600 hover:border-gray-500 hover:text-gray-400' // Inactive (OFF) -> Hover lightens border AND text
+        : 'border-gray-700 bg-gray-800/20 text-gray-600 hover:border-gray-500 hover:text-gray-400' // Inactive (OFF)
       }
     `}
   >
@@ -1212,11 +1251,14 @@ export default NeonButton;
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
-const NeonDropdown = ({ value, options, onChange }) => {
+const NeonDropdown = ({ value, options, onChange, isDisabled = false }) => {
   return (
     <div className="relative w-full">
-      {/* The Visual Part (What you see) */}
-      <div className="bg-slate-900 border border-cyan-500/50 rounded px-3 py-2 text-cyan-300 text-sm flex justify-between items-center shadow-[0_0_5px_rgba(34,211,238,0.2)] pointer-events-none">
+      {/* The Visual Part (Shows disabled styling via opacity) */}
+      <div className={`
+        bg-slate-900 border rounded px-3 py-2 text-sm flex justify-between items-center shadow-[0_0_5px_rgba(34,211,238,0.2)] pointer-events-none
+        ${isDisabled ? 'opacity-50 border-gray-700/50 text-gray-500' : 'border-cyan-500/50 text-cyan-300'}
+      `}>
         {value}
         <ChevronDown size={14} />
       </div>
@@ -1225,6 +1267,7 @@ const NeonDropdown = ({ value, options, onChange }) => {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        disabled={isDisabled} // <--- APPLY DISABLED ATTRIBUTE HERE
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-sm"
       >
         {options.map((opt) => (
@@ -1741,19 +1784,53 @@ export const LINE_MODES = [
   { label: "1 Line (16x1)", referenceHex: 0x00 }, // N=0 (1-Line) is bit 3
 ];
 
-===== src\utils\useLcdSim.js =====
+===== src\utils\LcdLogic.js =====
 
-import { useState } from 'react';
+// src/utils/LcdLogic.js
 
-// NOTE: Assuming LcdCommands and other necessary utilities are available in the scope
-// If you need to access specific constants (like CURSOR_HIDDEN_HEX), you must import them.
-// import { CURSOR_HIDDEN_HEX } from './LcdCommands';
+/**
+ * Pure function to execute the Clear Display command (0x01).
+ * @param {object} currentLcdRows - The current DDRAM data.
+ * @returns {object} The new DDRAM data, with all cells set to space (ASCII 32).
+ */
+const ASCII_SPACE = 32;
 
-// Helper to convert hex string to integer
-const hexStringToInt = (hexStr) => parseInt(hexStr.replace('0x', ''), 16);
+export const executeClearDisplay = (currentLcdRows) => {
+  // DDRAM clearing logic: set all 16x2 cells to ASCII space (32)
+  return {
+    row1: Array(16).fill(ASCII_SPACE),
+    row2: Array(16).fill(ASCII_SPACE)
+  };
+};
 
-// --- CORE LOGIC: FUNCTION SET COMMAND CALCULATION ---
-const getFunctionSetCommand = (width, lines) => {
+// ... Add other command execution functions here later (e.g., executeReturnHome)
+
+===== src\utils\LcdParser.js =====
+
+/**
+ * Converts a hex string ('0x28') to an integer.
+ * @param {string | number} code
+ * @returns {number}
+ */
+export const toInt = (code) => {
+  if (typeof code === 'number') return code;
+  return parseInt(code.replace('0x', ''), 16);
+};
+
+/**
+ * Converts an integer command value to its padded hex string representation.
+ * @param {number} val
+ * @returns {string}
+ */
+export const toHexStr = (val) => '0x' + val.toString(16).toUpperCase().padStart(2, '0');
+
+/**
+ * Calculates the HD44780 Function Set Command based on bus width and line count.
+ * @param {string} width - e.g., '4-Bit Mode' or '8-Bit Mode'
+ * @param {string} lines - e.g., '1 Line (16x1)' or '2 Lines (16x2)'
+ * @returns {string} The hex command string (e.g., '0x28')
+ */
+export const getFunctionSetCommand = (width, lines) => {
   const is2Line = lines.includes('2 Lines');
   const is8Bit = width.includes('8-Bit');
 
@@ -1762,99 +1839,113 @@ const getFunctionSetCommand = (width, lines) => {
   if (!is8Bit && is2Line) return '0x28';
   if (!is8Bit && !is2Line) return '0x20';
 
-  return '0x??';
+  return '0x??'; // Should not happen in a correctly configured system
 };
 
-// This is your new Custom Hook
+/**
+ * Calculates the DDRAM Address command for a specific row and column.
+ * @param {number} row (0 or 1)
+ * @param {number} col (0-15)
+ * @returns {number} DDRAM Address command (0x80 | Address)
+ */
+export const getDDRAMCommand = (row, col) => {
+  const rowOffset = row === 0 ? 0x00 : 0x40; // DDRAM Address for row 2 starts at 0x40
+  return 0x80 | rowOffset | col; // DDRAM Set Address command is 0x80
+};
+
+===== src\utils\useLcdSim.js =====
+
+// src/hooks/useLcdSim.js (The Orchestrator)
+
+import { useLcdState } from './useLcdState';
+import { toInt, toHexStr, getFunctionSetCommand, getDDRAMCommand } from '../utils/LcdParser';
+import { executeClearDisplay } from '../utils/LcdLogic'; // <--- UPDATED IMPORT HERE
+
 export const useLcdSim = () => {
+  // Pull all state and setters from the centralized state hook
+  const { state, setters } = useLcdState();
+  const {
+    setLogs, setGpio, setEnState, setDataBus, setInputValue, setInputFormat,
+    setBacklight, setLcdRows, setBusWidth, setLineCount, setEntryMode,
+    setDisplayVisible, setCursorStyle, setCursorRow, setCursorCol
+  } = setters;
 
-  // --- STATE (Moved from LcdController) ---
-  const [logs, setLogs] = useState(["> Initializing LCD...", "> Mode set to 4-Bit.", "> Backlight turned ON."]);
-  const [gpio, setGpio] = useState({ rs: true, rw: false });
-  const [enState, setEnState] = useState(false);
-  const [dataBus, setDataBus] = useState([0, 0, 0, 0, 1, 1, 0, 0]);
-  const [inputValue, setInputValue] = useState("");
-  const [inputFormat, setInputFormat] = useState("Hex");
-  const [backlight, setBacklight] = useState("ON");
-  const [lcdRows, setLcdRows] = useState({
-     row1: Array(16).fill(32),
-     row2: Array(16).fill(32)
-  });
-
-  // Configuration States
-  const [busWidth, setBusWidth] = useState('4-Bit Mode');
-  const [lineCount, setLineCount] = useState('2 Lines (16x2)');
-  const [entryMode, setEntryMode] = useState('Left to Right (Inc)');
-  const [displayVisible, setDisplayVisible] = useState('Display OFF');
-  const [cursorStyle, setCursorStyle] = useState('Hidden');
-  const [cursorRow, setCursorRow] = useState(0);
-  const [cursorCol, setCursorCol] = useState(0);
 
   // --- UTILITY HANDLERS ---
 
   const addLog = (msg) => setLogs(prev => [...prev.slice(-4), `> ${msg}`]);
 
-  const sendCommand = (hexCode) => {
-    // If input is already a hex string, convert to integer first
-    const hexVal = typeof hexCode === 'string' ? hexStringToInt(hexCode) : hexCode;
-    const hexStr = '0x' + hexVal.toString(16).toUpperCase().padStart(2,'0');
-    addLog(`Sending Command: ${hexStr}`);
+  const processCommand = (hexVal) => {
+    // This is where you would implement the switch-case logic for every command
+
+    // Command 0x01: Clear Display
+    if (hexVal === 0x01) {
+      setLcdRows(executeClearDisplay(state.lcdRows));
+      setCursorRow(0);
+      setCursorCol(0);
+    }
+    // Command 0x80-0xFF: Set DDRAM Address
+    else if ((hexVal & 0x80) === 0x80) {
+      // Decode R/C from DDRAM command for UI state only
+      const address = hexVal & 0x7F;
+      const row = address < 0x40 ? 0 : 1;
+      const col = address % 40; // Use 40 as max address in DDRAM for calculation
+
+      setCursorRow(row);
+      setCursorCol(col);
+    }
+
+    // Add other command logic here...
   };
 
-  // --- INTERACTION HANDLERS (Needed by GpioPanel, DataPin, PulseButton, Data Input) ---
+  const sendCommand = (hexCode) => {
+    const hexVal = toInt(hexCode);
+    addLog(`Sending Command: ${toHexStr(hexVal)}`);
+    processCommand(hexVal); // Route to internal command processor
+  };
 
-  // HANDLER: Toggle Data Pin (used by DataPin buttons)
+
+  // --- INTERACTION HANDLERS ---
+
   const toggleDataBit = (index) => {
-    const newBus = [...dataBus];
+    const newBus = [...state.dataBus];
     newBus[index] = newBus[index] === 1 ? 0 : 1;
     setDataBus(newBus);
   };
 
-  // HANDLER: Manual EN Switch (Toggle)
   const handleManualEn = () => {
-    const newState = !enState;
+    const newState = !state.enState;
     setEnState(newState);
     addLog(`EN Line set to ${newState ? 'HIGH' : 'LOW'}`);
   };
 
-  // HANDLER: Handle EN Pulse
   const handleEnPulse = () => {
     setEnState(true);
     addLog("Pulse: EN (High -> Low)");
+    // In a full sim, the command/data would be read HERE on the falling edge (High->Low)
     setTimeout(() => { setEnState(false); }, 200);
   };
 
-  // HANDLER: Handle Backlight Change
   const handleBacklightChange = (newStatus) => {
     setBacklight(newStatus);
     addLog(`Backlight turned ${newStatus}`);
   };
 
-  // HANDLER: Handle Send (Data Register)
   const handleSend = () => {
-    if(!inputValue) return;
-    addLog(`Sending ${inputFormat}: '${inputValue}'...`);
+    if(!state.inputValue) return;
+    // In a full sim, this would parse inputValue and send as data (RS=1)
+    addLog(`Sending ${state.inputFormat}: '${state.inputValue}'...`);
     setInputValue("");
   };
 
-  // HANDLER: Handle Cell Click (Set DDRAM Address command)
   const handleCellClick = (row, col) => {
-    const rowOffset = row === 0 ? 0x00 : 0x40;
-    const ddramAddress = 0x80 | rowOffset | col;
-    const hexCommand = '0x' + ddramAddress.toString(16).toUpperCase().padStart(2, '0');
-
+    const hexCommand = getDDRAMCommand(row, col);
     addLog(`Cursor set to: R${row}, C${col}`);
     sendCommand(hexCommand);
-
-    // ✅ CORRECTION: ADDED STATE TRACKING
-    setCursorRow(row);
-    setCursorCol(col);
   };
 
-
-  // THE MAIN CONFIGURATION HANDLER (Used by StatePanel)
   const handleConfigChange = ({ newConfig, changedProp, commands }) => {
-    // 1. Update states via their setters
+    // Update config states
     setBusWidth(newConfig.busWidth);
     setLineCount(newConfig.lineCount);
     setEntryMode(newConfig.entryMode);
@@ -1866,34 +1957,63 @@ export const useLcdSim = () => {
         addLog(`Function Set determined by: ${newConfig.busWidth} + ${newConfig.lineCount}`);
         sendCommand(functionSetHexStr);
     } else if (commands && commands.length > 0) {
-        commands.forEach(cmd => {
-            sendCommand(cmd);
-        });
+        commands.forEach(cmd => sendCommand(cmd));
     }
   };
 
 
-  // --- RETURN OBJECT (What LcdController uses) ---
+  // --- FINAL RETURN OBJECT ---
   return {
-    // Current State values (Data for rendering)
-    state: {
-      logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
-      busWidth, lineCount, entryMode, displayVisible, cursorStyle,
-      // ✅ EXPOSING CURSOR POSITION STATE
-      cursorRow, cursorCol
-    },
-    // Setters (Data for modifying state/input)
+    state: state,
     setters: {
-      setGpio, setInputFormat, setInputValue, setBacklight, // setBacklight was missing
+      setGpio, setInputFormat, setInputValue, setBacklight, // Exposed simple setters
     },
-    // Handler functions (Logic/Actions)
     handlers: {
       addLog, sendCommand, handleConfigChange, handleCellClick,
       toggleDataBit, handleManualEn, handleEnPulse, handleBacklightChange, handleSend
     },
-    // Utility for the Command Logic
-    utils: {
-      getFunctionSetCommand,
-    }
+  };
+};
+
+===== src\utils\useLcdState.js =====
+
+// src/hooks/useLcdState.js
+
+import { useState } from 'react';
+
+// ASCII for space character
+const ASCII_SPACE = 32;
+
+/**
+ * Hook to initialize and manage all primary state variables for the LCD simulation.
+ * @returns {object} State object containing all getters and setters.
+ */
+export const useLcdState = () => {
+  const [logs, setLogs] = useState(["> Initializing LCD...", "> Mode set to 4-Bit.", "> Backlight turned ON."]);
+  const [gpio, setGpio] = useState({ rs: true, rw: false });
+  const [enState, setEnState] = useState(false);
+  const [dataBus, setDataBus] = useState([0, 0, 0, 0, 1, 1, 0, 0]);
+  const [inputValue, setInputValue] = useState("");
+  const [inputFormat, setInputFormat] = useState("Hex");
+  const [backlight, setBacklight] = useState("ON");
+
+  // DDRAM: Initialize 16x2 with ASCII space (32)
+  const [lcdRows, setLcdRows] = useState({
+     row1: Array(16).fill(ASCII_SPACE),
+     row2: Array(16).fill(ASCII_SPACE)
+  });
+
+  // Configuration States
+  const [busWidth, setBusWidth] = useState('4-Bit Mode');
+  const [lineCount, setLineCount] = useState('2 Lines (16x2)');
+  const [entryMode, setEntryMode] = useState('Left to Right (Inc)');
+  const [displayVisible, setDisplayVisible] = useState('Display OFF');
+  const [cursorStyle, setCursorStyle] = useState('Hidden');
+  const [cursorRow, setCursorRow] = useState(0);
+  const [cursorCol, setCursorCol] = useState(0);
+
+  return {
+    state: { logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows, busWidth, lineCount, entryMode, displayVisible, cursorStyle, cursorRow, cursorCol },
+    setters: { setLogs, setGpio, setEnState, setDataBus, setInputValue, setInputFormat, setBacklight, setLcdRows, setBusWidth, setLineCount, setEntryMode, setDisplayVisible, setCursorStyle, setCursorRow, setCursorCol }
   };
 };

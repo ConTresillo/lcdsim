@@ -7,6 +7,8 @@ const GpioPanel = ({ gpio, setGpio, backlight, setBacklight, enState, onManualEn
     <h3 className="text-neon mb-6 font-bold border-b border-white/10 pb-2">GPIO SWITCHES</h3>
 
     <ToggleSwitch label="RS" subtitle="Register Select" active={gpio.rs} onClick={() => setGpio({...gpio, rs: !gpio.rs})} />
+
+    {/* R/W Switch: Toggles the gpio.rw state */}
     <ToggleSwitch label="RW" subtitle="Read/Write" active={gpio.rw} onClick={() => setGpio({...gpio, rw: !gpio.rw})} />
 
     {/* EN SWITCH (Linked to Shared State) */}

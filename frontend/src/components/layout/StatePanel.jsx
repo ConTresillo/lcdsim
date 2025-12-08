@@ -12,7 +12,7 @@ const CURSOR_HIDDEN_LABEL = 'Hidden';
 const DISPLAY_ON_HEX = 0x0C;
 const CURSOR_HIDDEN_HEX = 0x0C; // 0x0C means Display ON, Cursor OFF (Hidden)
 
-const StatePanel = ({ config, onConfigChange }) => {
+const StatePanel = ({ config, onConfigChange, isInputDisabled }) => { // <--- ADDED isInputDisabled
     // INTERNAL STATE: Use internal state for smooth UI interaction
     const [entryLabel, setEntryLabel] = useState(config.entryMode);
     const [cursorLabel, setCursorLabel] = useState(config.cursorStyle);
@@ -35,6 +35,8 @@ const StatePanel = ({ config, onConfigChange }) => {
 
     // --- UNIFIED DROPDOWN HANDLER: Incorporating Constraints ---
     const handleDropdownChange = (newValue, setter, propertyName, commandList = null) => {
+
+        if (isInputDisabled) return; // <--- IGNORE EVENT IF DISABLED
 
         // Use local state values for calculating constraints *before* updating them
         let newDisplayLabel = displayLabel;
@@ -117,6 +119,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={displayLabel}
                         options={DISPLAY_POWER.map(d => d.label)}
                         onChange={(val) => handleDropdownChange(val, setDisplayLabel, 'displayVisible', DISPLAY_POWER)}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -127,6 +130,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={entryLabel}
                         options={ENTRY_MODES.map(e => e.label)}
                         onChange={(val) => handleDropdownChange(val, setEntryLabel, 'entryMode', ENTRY_MODES)}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -137,6 +141,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={cursorLabel}
                         options={CURSOR_MODES.map(c => c.label)}
                         onChange={(val) => handleDropdownChange(val, setCursorLabel, 'cursorStyle', CURSOR_MODES)}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -147,6 +152,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={busLabel}
                         options={BUS_MODES.map(b => b.label)}
                         onChange={(val) => handleDropdownChange(val, setBusLabel, 'busWidth')}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 
@@ -157,6 +163,7 @@ const StatePanel = ({ config, onConfigChange }) => {
                         value={lineLabel}
                         options={LINE_MODES.map(l => l.label)}
                         onChange={(val) => handleDropdownChange(val, setLineLabel, 'lineCount')}
+                        isDisabled={isInputDisabled} // <--- PASSED PROP
                     />
                 </div>
 

@@ -17,8 +17,6 @@ import NeonButton from '../ui/NeonButton';
 import NeonDropdown from '../ui/NeonDropdown';
 import PulseButton from '../ui/PulseButton';
 
-// NOTE: All prior logic functions (hexStringToInt, getFunctionSetCommand, etc.) are now inside useLcdSim.js
-
 const LcdController = () => {
 
   // --- 1. USE CUSTOM HOOK TO GET ALL STATE AND HANDLERS ---
@@ -32,8 +30,7 @@ const LcdController = () => {
   const {
     logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows,
     busWidth, lineCount, entryMode, displayVisible, cursorStyle,
-    // ✅ NEW: Cursor position state pulled from the hook
-    cursorRow, cursorCol
+    cursorRow, cursorCol, ddramOffset // <-- ADDED ddramOffset
   } = state;
 
   const {
@@ -42,17 +39,30 @@ const LcdController = () => {
   } = handlers;
 
   const {
-    setGpio, setInputFormat, setInputValue, setBacklight // Added setBacklight
+    setGpio, setInputFormat, setInputValue, setBacklight
   } = setters;
 
 
-  // --- DYNAMIC THEME CALCULATIONS (Using state values from the hook) ---
+  // --- DYNAMIC LOGIC: ADDRESS DECODING & UI THEME ---
   const isDataMode = gpio.rs;
-  const borderColor = isDataMode ? "border-cyan-500/30" : "border-yellow-500/30";
-  const titleColor  = isDataMode ? "text-cyan-400" : "text-yellow-500";
-  const subTextColor = isDataMode ? "text-cyan-600" : "text-yellow-700";
-  const labelText   = isDataMode ? "DATA REGISTER (DR)" : "INSTRUCTION REGISTER (IR)";
-  const statusText  = isDataMode ? "RS=1 (HIGH)" : "RS=0 (LOW)";
+  const isReadMode = gpio.rw;
+
+  // Determine Register Panel UI colors and labels
+  let borderColor, titleColor, subTextColor, labelText, statusText;
+
+  if (isReadMode) {
+    borderColor = "border-yellow-700/50";
+    titleColor = "text-yellow-600";
+    subTextColor = "text-yellow-800";
+    labelText = isDataMode ? "DATA READ (DDRAM)" : "STATUS READ (BUSY FLAG)";
+    statusText = `R/W=1 (HIGH), RS=${isDataMode ? '1' : '0'}`;
+  } else {
+    borderColor = isDataMode ? "border-cyan-500/30" : "border-yellow-500/30";
+    titleColor = isDataMode ? "text-cyan-400" : "text-yellow-500";
+    subTextColor = isDataMode ? "text-cyan-600" : "text-yellow-700";
+    labelText = isDataMode ? "DATA REGISTER (DR)" : "INSTRUCTION REGISTER (IR)";
+    statusText = `R/W=0 (LOW), RS=${isDataMode ? '1' : '0'}`;
+  }
 
 
   // --- COMPONENT RENDER LOGIC ---
@@ -97,13 +107,11 @@ const LcdController = () => {
 
   // --- START OF STRUCTURAL RENDER ---
   return (
-    // Outer Container: Max width for the whole simulator panel, consumes full height.
     <div className="max-w-6xl w-full h-full">
 
-        {/* Main Grid: Takes available width and manages content flow for the columns */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full h-full">
 
-            {/* LEFT COLUMN: Fixed content height relative to container. Scrollable if content overflows. */}
+            {/* LEFT COLUMN: GPIO Panel */}
             <div className="lg:col-span-3 min-w-0 flex flex-col h-full overflow-y-auto">
                 <GpioPanel
                     gpio={gpio}
@@ -115,7 +123,7 @@ const LcdController = () => {
                 />
             </div>
 
-            {/* CENTER COLUMN: Allow internal vertical scroll for logs/terminal. */}
+            {/* CENTER COLUMN: LCD Screen, DataPins, Terminal */}
             <div className="lg:col-span-6 flex flex-col gap-6 items-center min-w-0 h-full overflow-y-auto">
                 <div className="w-full flex justify-center transition-all duration-500 flex-shrink-0">
                     <LcdScreen
@@ -123,11 +131,10 @@ const LcdController = () => {
                         row2Data={lcdRows.row2}
                         backlight={backlight}
                         onCellClick={handleCellClick}
-
-                        // ✅ PROPS PASSED TO LCD SCREEN FOR CURSOR RENDERING
                         cursorRow={cursorRow}
                         cursorCol={cursorCol}
                         cursorStyle={cursorStyle}
+                        ddramOffset={ddramOffset} // <-- PASSED ddramOffset
                     />
                 </div>
 
@@ -138,6 +145,7 @@ const LcdController = () => {
                             label={`D${bitIndex}`}
                             active={dataBus[bitIndex] === 1}
                             onClick={() => toggleDataBit(bitIndex)}
+                            isDisabled={isReadMode} // <-- DISABLED R/W=1
                         />
                     ))}
                     <div className="w-2"></div>
@@ -151,19 +159,20 @@ const LcdController = () => {
                 <Terminal logs={logs}/>
             </div>
 
-            {/* RIGHT COLUMN: Allow internal vertical scroll for expanding menus. */}
+            {/* RIGHT COLUMN: Register Panel and State Panel - Using flex-1 for equal height */}
             <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative h-full overflow-y-auto z-40">
                 {/* UNIFIED REGISTER PANEL */}
                 <div className={`
                     flex-shrink-0
                     bg-white/5 backdrop-blur-md border rounded-xl p-6 w-full relative z-30
-                    min-h-[16rem] 
+                    flex-1 /* Flex-1 for equal height */
+                    min-h-[12rem] 
                     flex flex-col
                     transition-colors duration-500 ease-in-out
                     ${borderColor}
                 `}>
 
-                    {/* Header (Animates Color) */}
+                    {/* Header (The Decoder Output Label) */}
                     <div
                         className={`flex justify-between items-center mb-4 border-b pb-2 transition-colors duration-500 ${borderColor}`}>
                         <label
@@ -175,44 +184,63 @@ const LcdController = () => {
                     </span>
                     </div>
 
-                    {/* Dynamic Body Content - Framer Motion for Smooth Swap */}
+                    {/* Dynamic Body Content - Swaps based on R/W and RS state */}
                     <div className="flex-1 flex flex-col justify-center">
                         <AnimatePresence mode="wait" initial={false}>
-                            {isDataMode ? (
+                            {isReadMode ? (
+                                // Read Mode Panel (R/W=1): Input disabled, simulating status/data output
                                 <motion.div
-                                    key="data"
+                                    key="read"
                                     layout
                                     initial={{opacity: 0, y: 10}}
                                     animate={{opacity: 1, y: 0}}
                                     exit={{opacity: 0, y: -10}}
                                     transition={{duration: 0.3}}
-                                    className="w-full"
+                                    className="w-full text-center text-gray-500 text-sm font-mono flex flex-col items-center justify-center h-full" // Use h-full to fill flex-1 space
                                 >
-                                    {DataInputUI}
+                                    <span className="text-xl text-yellow-500 mb-2">READ MODE ACTIVE</span>
+                                    <span>IR/DR Inputs Disabled</span>
+                                    <span>Data Bus outputs Status/Data</span>
                                 </motion.div>
                             ) : (
-                                <motion.div
-                                    key="command"
-                                    layout
-                                    initial={{opacity: 0, y: 10}}
-                                    animate={{opacity: 1, y: 0}}
-                                    exit={{opacity: 0, y: -10}}
-                                    transition={{duration: 0.3}}
-                                    className="w-full"
-                                >
-                                    {CommandInputUI}
-                                </motion.div>
+                                // Write Mode Panel (R/W=0): Input enabled
+                                isDataMode ? (
+                                    <motion.div
+                                        key="data"
+                                        layout
+                                        initial={{opacity: 0, y: 10}}
+                                        animate={{opacity: 1, y: 0}}
+                                        exit={{opacity: 0, y: -10}}
+                                        transition={{duration: 0.3}}
+                                        className="w-full"
+                                    >
+                                        {DataInputUI}
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="command"
+                                        layout
+                                        initial={{opacity: 0, y: 10}}
+                                        animate={{opacity: 1, y: 0}}
+                                        exit={{opacity: 0, y: -10}}
+                                        transition={{duration: 0.3}}
+                                        className="w-full"
+                                    >
+                                        {CommandInputUI}
+                                    </motion.div>
+                                )
                             )}
                         </AnimatePresence>
                     </div>
 
                 </div>
 
-                {/* STATE PANEL (Fixed below) */}
-                <div className="relative z-10 flex-shrink-0">
+                {/* STATE PANEL */}
+                <div className="relative z-10 flex-shrink-0 flex-1"> {/* Flex-1 for equal height */}
                     <StatePanel
                         config={{busWidth, lineCount, entryMode, displayVisible, cursorStyle}}
                         onConfigChange={handleConfigChange}
+                        isInputDisabled={isReadMode} // <-- DISABLED R/W=1
                     />
                 </div>
             </div>
