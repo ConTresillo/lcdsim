@@ -1,3 +1,5 @@
+// src/components/display/LcdScreen.jsx
+
 import React from 'react';
 import Cell from './Cell';
 
@@ -18,7 +20,6 @@ const MountingHole = ({ position }) => (
 );
 
 // --- 2. Main LcdScreen Component ---
-// ✅ ADDED: cursorRow, cursorCol, and cursorStyle props back
 const LcdScreen = ({
     row1Data,
     row2Data,
@@ -26,15 +27,22 @@ const LcdScreen = ({
     onCellClick,
     cursorRow,
     cursorCol,
-    cursorStyle
+    cursorStyle,
+    ddramOffset // <--- NEW PROP
 }) => {
-  const r1 = row1Data && row1Data.length === 16 ? row1Data : Array(16).fill(32);
-  const r2 = row2Data && row2Data.length === 16 ? row2Data : Array(16).fill(32);
 
-  // LOGIC: If backlight is OFF, the glass gets dark and text gets dim.
+  const VISIBLE_WIDTH = 16;
+  const startIndex = ddramOffset;
+  const endIndex = ddramOffset + VISIBLE_WIDTH;
+
+  // Slice the 40-cell DDRAM data to show only the visible 16 cells
+  const r1 = row1Data?.slice(startIndex, endIndex) || Array(VISIBLE_WIDTH).fill(32);
+  const r2 = row2Data?.slice(startIndex, endIndex) || Array(VISIBLE_WIDTH).fill(32);
+
+
   const screenStateClass = backlight === "OFF"
-    ? "opacity-50 brightness-10" // Dimmed state
-    : "opacity-100 brightness-100";        // ON state
+    ? "opacity-50 brightness-10"
+    : "opacity-100 brightness-100";
 
   return (
     <div className="relative p-1 w-fit mx-auto">
@@ -74,7 +82,7 @@ const LcdScreen = ({
       {/* ================================================= */}
       {/* === THE SCREEN BEZEL & GLASS                  === */}
       {/* ================================================= */}
-        <div className="relative bg-gray-950 px-3 py-2 rounded-md shadow-lg border-t border-gray-800 mx-2 mb-2 z-20">
+        <div className="relative bg-slate-900 px-3 py-2 rounded-md shadow-lg border-t border-slate-700 mx-2 mb-2 z-20">
             <div className="absolute top-1/2 left-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
             <div className="absolute top-1/2 right-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
 
@@ -96,34 +104,41 @@ const LcdScreen = ({
 
                 {/* ROW 1: Index 0 */}
                 <div className="flex gap-[2px] md:gap-[3px] relative z-10">
-                    {r1.map((code, i) => (
-                        <Cell
-                            key={`r1-${i}`}
-                            char={String.fromCharCode(code)}
-                            row={0} // Row index 0
-                            col={i} // Column index 0-15
-                            onCellClick={onCellClick}
-                            // ✅ PROPS PASSED TO CELL
-                            isActiveCursor={cursorRow === 0 && cursorCol === i}
-                            cursorStyle={cursorStyle}
-                        />
-                    ))}
+                    {r1.map((code, i) => {
+                        // Check if the internal DDRAM address matches the cursor
+                        const isCursorActive = cursorRow === 0 && cursorCol === (ddramOffset + i);
+
+                        return (
+                            <Cell
+                                key={`r1-${i}`}
+                                char={String.fromCharCode(code)}
+                                row={0} // Row index 0
+                                col={i} // Column index 0-15 (Visible column for onClick use)
+                                onCellClick={onCellClick}
+                                isActiveCursor={isCursorActive}
+                                cursorStyle={cursorStyle}
+                            />
+                        );
+                    })}
                 </div>
 
                 {/* ROW 2: Index 1 */}
                 <div className="flex gap-[2px] md:gap-[3px] relative z-10">
-                    {r2.map((code, i) => (
-                        <Cell
-                            key={`r2-${i}`}
-                            char={String.fromCharCode(code)}
-                            row={1} // Row index 1
-                            col={i} // Column index 0-15
-                            onCellClick={onCellClick}
-                            // ✅ PROPS PASSED TO CELL
-                            isActiveCursor={cursorRow === 1 && cursorCol === i}
-                            cursorStyle={cursorStyle}
-                        />
-                    ))}
+                    {r2.map((code, i) => {
+                        const isCursorActive = cursorRow === 1 && cursorCol === (ddramOffset + i);
+
+                        return (
+                            <Cell
+                                key={`r2-${i}`}
+                                char={String.fromCharCode(code)}
+                                row={1} // Row index 1
+                                col={i} // Column index 0-15 (Visible column for onClick use)
+                                onCellClick={onCellClick}
+                                isActiveCursor={isCursorActive}
+                                cursorStyle={cursorStyle}
+                            />
+                        );
+                    })}
                 </div>
             </div>
         </div>

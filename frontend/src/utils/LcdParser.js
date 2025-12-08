@@ -1,3 +1,5 @@
+// src/utils/LcdParser.js
+
 /**
  * Converts a hex string ('0x28') to an integer.
  * @param {string | number} code
@@ -30,16 +32,21 @@ export const getFunctionSetCommand = (width, lines) => {
   if (!is8Bit && is2Line) return '0x28';
   if (!is8Bit && !is2Line) return '0x20';
 
-  return '0x??'; // Should not happen in a correctly configured system
+  return '0x??';
 };
 
 /**
  * Calculates the DDRAM Address command for a specific row and column.
+ * NOTE: The internal DDRAM is 40 cells wide (0-39).
  * @param {number} row (0 or 1)
- * @param {number} col (0-15)
+ * @param {number} col (0-39, internal DDRAM column)
  * @returns {number} DDRAM Address command (0x80 | Address)
  */
 export const getDDRAMCommand = (row, col) => {
-  const rowOffset = row === 0 ? 0x00 : 0x40; // DDRAM Address for row 2 starts at 0x40
-  return 0x80 | rowOffset | col; // DDRAM Set Address command is 0x80
+  const rowOffset = row === 0 ? 0x00 : 0x40; // DDRAM Row 2 starts at 0x40
+
+  // Ensure the column address respects the 40-cell boundary
+  const ddramCol = Math.min(col, 39);
+
+  return 0x80 | rowOffset | ddramCol; // DDRAM Set Address command is 0x80
 };
