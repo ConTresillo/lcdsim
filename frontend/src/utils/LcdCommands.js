@@ -7,7 +7,7 @@ export const ACTION_COMMANDS = [
   { label: "Move Cursor Left", hex: 0x10 },
   { label: "Move Cursor Right", hex: 0x14 },
   { label: "Shift Screen Left", hex: 0x18 },
-  { label: "Shift Screen Right", hex: 0x1C }
+  { label: "Shift Screen Right", hex: 0x1C },
 ];
 
 // STATE GROUPS (Configurations)

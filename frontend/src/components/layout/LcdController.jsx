@@ -152,8 +152,8 @@ const LcdController = () => {
             </div>
 
             {/* RIGHT COLUMN: Allow internal vertical scroll for expanding menus. */}
-            <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative h-full overflow-y-auto">
-                 {/* UNIFIED REGISTER PANEL */}
+            <div className="lg:col-span-3 flex flex-col gap-4 min-w-0 relative h-full overflow-y-auto z-40">
+                {/* UNIFIED REGISTER PANEL */}
                 <div className={`
                     flex-shrink-0
                     bg-white/5 backdrop-blur-md border rounded-xl p-6 w-full relative z-30
@@ -176,7 +176,7 @@ const LcdController = () => {
                     </div>
 
                     {/* Dynamic Body Content - Framer Motion for Smooth Swap */}
-                    <div className="flex-1 flex flex-col justify-center overflow-hidden">
+                    <div className="flex-1 flex flex-col justify-center">
                         <AnimatePresence mode="wait" initial={false}>
                             {isDataMode ? (
                                 <motion.div
@@ -211,7 +211,7 @@ const LcdController = () => {
                 {/* STATE PANEL (Fixed below) */}
                 <div className="relative z-10 flex-shrink-0">
                     <StatePanel
-                        config={{ busWidth, lineCount, entryMode, displayVisible, cursorStyle }}
+                        config={{busWidth, lineCount, entryMode, displayVisible, cursorStyle}}
                         onConfigChange={handleConfigChange}
                     />
                 </div>

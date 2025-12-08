@@ -74,58 +74,59 @@ const LcdScreen = ({
       {/* ================================================= */}
       {/* === THE SCREEN BEZEL & GLASS                  === */}
       {/* ================================================= */}
-      <div className="relative bg-slate-900 px-3 py-2 rounded-md shadow-lg border-t border-slate-700 mx-2 mb-2 z-20">
-         <div className="absolute top-1/2 left-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
-         <div className="absolute top-1/2 right-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
+        <div className="relative bg-gray-950 px-3 py-2 rounded-md shadow-lg border-t border-gray-800 mx-2 mb-2 z-20">
+            <div className="absolute top-1/2 left-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
+            <div className="absolute top-1/2 right-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
 
-         {/* === INNER GLASS (This part reacts to Backlight) === */}
-         <div
-            className={`
+            {/* === INNER GLASS (This part reacts to Backlight) === */}
+            <div
+                className={`
               bg-[#1a2e2e] py-2 px-3 rounded border-2 border-slate-700/50 
               shadow-[inset_0_0_15px_rgba(0,0,0,1)] 
               relative overflow-hidden flex flex-col items-center justify-center gap-1
               transition-all duration-500 ease-in-out
               ${screenStateClass} 
             `}
-         >
-            {/* Backlight Glow (Only visible when ON due to parent opacity) */}
-            <div className="absolute inset-0 bg-cyan-500/40 blur-xl pointer-events-none"></div>
+            >
+                {/* Backlight Glow (Only visible when ON due to parent opacity) */}
+                <div className="absolute inset-0 bg-cyan-500/40 blur-xl pointer-events-none"></div>
 
-            <div className="absolute top-0 right-0 w-[150%] h-full bg-gradient-to-b from-white/5 to-transparent transform -skew-x-45 pointer-events-none z-20"></div>
+                <div
+                    className="absolute top-0 right-0 w-[150%] h-full bg-gradient-to-b from-white/5 to-transparent transform -skew-x-45 pointer-events-none z-20"></div>
 
-            {/* ROW 1: Index 0 */}
-            <div className="flex gap-[2px] md:gap-[3px] relative z-10">
-                {r1.map((code, i) => (
-                    <Cell
-                        key={`r1-${i}`}
-                        char={String.fromCharCode(code)}
-                        row={0} // Row index 0
-                        col={i} // Column index 0-15
-                        onCellClick={onCellClick}
-                        // ✅ PROPS PASSED TO CELL
-                        isActiveCursor={cursorRow === 0 && cursorCol === i}
-                        cursorStyle={cursorStyle}
-                    />
-                ))}
+                {/* ROW 1: Index 0 */}
+                <div className="flex gap-[2px] md:gap-[3px] relative z-10">
+                    {r1.map((code, i) => (
+                        <Cell
+                            key={`r1-${i}`}
+                            char={String.fromCharCode(code)}
+                            row={0} // Row index 0
+                            col={i} // Column index 0-15
+                            onCellClick={onCellClick}
+                            // ✅ PROPS PASSED TO CELL
+                            isActiveCursor={cursorRow === 0 && cursorCol === i}
+                            cursorStyle={cursorStyle}
+                        />
+                    ))}
+                </div>
+
+                {/* ROW 2: Index 1 */}
+                <div className="flex gap-[2px] md:gap-[3px] relative z-10">
+                    {r2.map((code, i) => (
+                        <Cell
+                            key={`r2-${i}`}
+                            char={String.fromCharCode(code)}
+                            row={1} // Row index 1
+                            col={i} // Column index 0-15
+                            onCellClick={onCellClick}
+                            // ✅ PROPS PASSED TO CELL
+                            isActiveCursor={cursorRow === 1 && cursorCol === i}
+                            cursorStyle={cursorStyle}
+                        />
+                    ))}
+                </div>
             </div>
-
-            {/* ROW 2: Index 1 */}
-            <div className="flex gap-[2px] md:gap-[3px] relative z-10">
-                {r2.map((code, i) => (
-                    <Cell
-                        key={`r2-${i}`}
-                        char={String.fromCharCode(code)}
-                        row={1} // Row index 1
-                        col={i} // Column index 0-15
-                        onCellClick={onCellClick}
-                        // ✅ PROPS PASSED TO CELL
-                        isActiveCursor={cursorRow === 1 && cursorCol === i}
-                        cursorStyle={cursorStyle}
-                    />
-                ))}
-            </div>
-         </div>
-      </div>
+        </div>
 
     </div>
   );
