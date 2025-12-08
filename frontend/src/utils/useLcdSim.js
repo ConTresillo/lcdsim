@@ -112,6 +112,7 @@ export const useLcdSim = () => {
 
   const handleCellClick = (row, col) => {
     // Map the clicked visible column (0-15) to the internal DDRAM column
+    // DDRAM address = current DDRAM offset + visible column index
     const ddramCol = state.ddramOffset + col;
 
     const hexCommand = getDDRAMCommand(row, ddramCol);

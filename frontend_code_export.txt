@@ -417,6 +417,8 @@ export default memo(Cell);
 
 ===== src\components\display\LcdScreen.jsx =====
 
+// src/components/display/LcdScreen.jsx
+
 import React from 'react';
 import Cell from './Cell';
 
@@ -437,7 +439,6 @@ const MountingHole = ({ position }) => (
 );
 
 // --- 2. Main LcdScreen Component ---
-// ✅ ADDED: cursorRow, cursorCol, and cursorStyle props back
 const LcdScreen = ({
     row1Data,
     row2Data,
@@ -445,15 +446,22 @@ const LcdScreen = ({
     onCellClick,
     cursorRow,
     cursorCol,
-    cursorStyle
+    cursorStyle,
+    ddramOffset // <--- NEW PROP
 }) => {
-  const r1 = row1Data && row1Data.length === 16 ? row1Data : Array(16).fill(32);
-  const r2 = row2Data && row2Data.length === 16 ? row2Data : Array(16).fill(32);
 
-  // LOGIC: If backlight is OFF, the glass gets dark and text gets dim.
+  const VISIBLE_WIDTH = 16;
+  const startIndex = ddramOffset;
+  const endIndex = ddramOffset + VISIBLE_WIDTH;
+
+  // Slice the 40-cell DDRAM data to show only the visible 16 cells
+  const r1 = row1Data?.slice(startIndex, endIndex) || Array(VISIBLE_WIDTH).fill(32);
+  const r2 = row2Data?.slice(startIndex, endIndex) || Array(VISIBLE_WIDTH).fill(32);
+
+
   const screenStateClass = backlight === "OFF"
-    ? "opacity-50 brightness-10" // Dimmed state
-    : "opacity-100 brightness-100";        // ON state
+    ? "opacity-50 brightness-10"
+    : "opacity-100 brightness-100";
 
   return (
     <div className="relative p-1 w-fit mx-auto">
@@ -493,7 +501,7 @@ const LcdScreen = ({
       {/* ================================================= */}
       {/* === THE SCREEN BEZEL & GLASS                  === */}
       {/* ================================================= */}
-        <div className="relative bg-gray-950 px-3 py-2 rounded-md shadow-lg border-t border-gray-800 mx-2 mb-2 z-20">
+        <div className="relative bg-slate-900 px-3 py-2 rounded-md shadow-lg border-t border-slate-700 mx-2 mb-2 z-20">
             <div className="absolute top-1/2 left-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
             <div className="absolute top-1/2 right-1 w-1 h-1 bg-slate-800 rounded-full shadow-inner"></div>
 
@@ -515,34 +523,41 @@ const LcdScreen = ({
 
                 {/* ROW 1: Index 0 */}
                 <div className="flex gap-[2px] md:gap-[3px] relative z-10">
-                    {r1.map((code, i) => (
-                        <Cell
-                            key={`r1-${i}`}
-                            char={String.fromCharCode(code)}
-                            row={0} // Row index 0
-                            col={i} // Column index 0-15
-                            onCellClick={onCellClick}
-                            // ✅ PROPS PASSED TO CELL
-                            isActiveCursor={cursorRow === 0 && cursorCol === i}
-                            cursorStyle={cursorStyle}
-                        />
-                    ))}
+                    {r1.map((code, i) => {
+                        // Check if the internal DDRAM address matches the cursor
+                        const isCursorActive = cursorRow === 0 && cursorCol === (ddramOffset + i);
+
+                        return (
+                            <Cell
+                                key={`r1-${i}`}
+                                char={String.fromCharCode(code)}
+                                row={0} // Row index 0
+                                col={i} // Column index 0-15 (Visible column for onClick use)
+                                onCellClick={onCellClick}
+                                isActiveCursor={isCursorActive}
+                                cursorStyle={cursorStyle}
+                            />
+                        );
+                    })}
                 </div>
 
                 {/* ROW 2: Index 1 */}
                 <div className="flex gap-[2px] md:gap-[3px] relative z-10">
-                    {r2.map((code, i) => (
-                        <Cell
-                            key={`r2-${i}`}
-                            char={String.fromCharCode(code)}
-                            row={1} // Row index 1
-                            col={i} // Column index 0-15
-                            onCellClick={onCellClick}
-                            // ✅ PROPS PASSED TO CELL
-                            isActiveCursor={cursorRow === 1 && cursorCol === i}
-                            cursorStyle={cursorStyle}
-                        />
-                    ))}
+                    {r2.map((code, i) => {
+                        const isCursorActive = cursorRow === 1 && cursorCol === (ddramOffset + i);
+
+                        return (
+                            <Cell
+                                key={`r2-${i}`}
+                                char={String.fromCharCode(code)}
+                                row={1} // Row index 1
+                                col={i} // Column index 0-15 (Visible column for onClick use)
+                                onCellClick={onCellClick}
+                                isActiveCursor={isCursorActive}
+                                cursorStyle={cursorStyle}
+                            />
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -1788,24 +1803,23 @@ export const LINE_MODES = [
 
 // src/utils/LcdLogic.js
 
+const ASCII_SPACE = 32;
+const DDRAM_WIDTH = 40; // DDRAM is 40 cells wide
+
 /**
  * Pure function to execute the Clear Display command (0x01).
- * @param {object} currentLcdRows - The current DDRAM data.
- * @returns {object} The new DDRAM data, with all cells set to space (ASCII 32).
+ * @returns {object} The new DDRAM data, with all 40x2 cells set to space (ASCII 32).
  */
-const ASCII_SPACE = 32;
-
-export const executeClearDisplay = (currentLcdRows) => {
-  // DDRAM clearing logic: set all 16x2 cells to ASCII space (32)
+export const executeClearDisplay = () => {
   return {
-    row1: Array(16).fill(ASCII_SPACE),
-    row2: Array(16).fill(ASCII_SPACE)
+    row1: Array(DDRAM_WIDTH).fill(ASCII_SPACE),
+    row2: Array(DDRAM_WIDTH).fill(ASCII_SPACE)
   };
 };
 
-// ... Add other command execution functions here later (e.g., executeReturnHome)
-
 ===== src\utils\LcdParser.js =====
+
+// src/utils/LcdParser.js
 
 /**
  * Converts a hex string ('0x28') to an integer.
@@ -1839,69 +1853,105 @@ export const getFunctionSetCommand = (width, lines) => {
   if (!is8Bit && is2Line) return '0x28';
   if (!is8Bit && !is2Line) return '0x20';
 
-  return '0x??'; // Should not happen in a correctly configured system
+  return '0x??';
 };
 
 /**
  * Calculates the DDRAM Address command for a specific row and column.
+ * NOTE: The internal DDRAM is 40 cells wide (0-39).
  * @param {number} row (0 or 1)
- * @param {number} col (0-15)
+ * @param {number} col (0-39, internal DDRAM column)
  * @returns {number} DDRAM Address command (0x80 | Address)
  */
 export const getDDRAMCommand = (row, col) => {
-  const rowOffset = row === 0 ? 0x00 : 0x40; // DDRAM Address for row 2 starts at 0x40
-  return 0x80 | rowOffset | col; // DDRAM Set Address command is 0x80
+  const rowOffset = row === 0 ? 0x00 : 0x40; // DDRAM Row 2 starts at 0x40
+
+  // Ensure the column address respects the 40-cell boundary
+  const ddramCol = Math.min(col, 39);
+
+  return 0x80 | rowOffset | ddramCol; // DDRAM Set Address command is 0x80
 };
 
 ===== src\utils\useLcdSim.js =====
 
-// src/hooks/useLcdSim.js (The Orchestrator)
+// src/hooks/useLcdSim.js
 
 import { useLcdState } from './useLcdState';
 import { toInt, toHexStr, getFunctionSetCommand, getDDRAMCommand } from '../utils/LcdParser';
-import { executeClearDisplay } from '../utils/LcdLogic'; // <--- UPDATED IMPORT HERE
+import { executeClearDisplay } from '../utils/LcdLogic';
 
 export const useLcdSim = () => {
-  // Pull all state and setters from the centralized state hook
   const { state, setters } = useLcdState();
   const {
     setLogs, setGpio, setEnState, setDataBus, setInputValue, setInputFormat,
     setBacklight, setLcdRows, setBusWidth, setLineCount, setEntryMode,
-    setDisplayVisible, setCursorStyle, setCursorRow, setCursorCol
+    setDisplayVisible, setCursorStyle, setCursorRow, setCursorCol, setDdramOffset
   } = setters;
 
 
-  // --- UTILITY HANDLERS ---
+  // --- DDRAM OFFSET / SCROLL UTILITY ---
+
+  const DDRAM_WIDTH = 40;
+  const VISIBLE_WIDTH = 16;
+
+  /**
+   * Adjusts the DDRAM Offset (viewport) to ensure the given internal column is visible.
+   */
+  const autoScrollDdramOffset = (internalDDRAM_Col, currentOffset) => {
+      let newOffset = currentOffset;
+
+      // 1. Cursor moved off the RIGHT edge of the visible window
+      if (internalDDRAM_Col >= currentOffset + VISIBLE_WIDTH) {
+          // Shift the window right to align the new column to the right edge
+          newOffset = internalDDRAM_Col - (VISIBLE_WIDTH - 1);
+      }
+      // 2. Cursor moved off the LEFT edge of the visible window
+      else if (internalDDRAM_Col < currentOffset) {
+          // Shift the window left to align the new column to the left edge
+          newOffset = internalDDRAM_Col;
+      }
+
+      // Ensure offset stays within bounds (0 to 40 - 16 = 24)
+      newOffset = Math.min(newOffset, DDRAM_WIDTH - VISIBLE_WIDTH);
+      newOffset = Math.max(newOffset, 0);
+
+      return newOffset;
+  };
+
+  // --- COMMAND PROCESSOR ---
 
   const addLog = (msg) => setLogs(prev => [...prev.slice(-4), `> ${msg}`]);
 
   const processCommand = (hexVal) => {
-    // This is where you would implement the switch-case logic for every command
 
     // Command 0x01: Clear Display
     if (hexVal === 0x01) {
-      setLcdRows(executeClearDisplay(state.lcdRows));
+      setLcdRows(executeClearDisplay());
       setCursorRow(0);
       setCursorCol(0);
+      setDdramOffset(0); // FIX: Resets visible window to start at DDRAM address 0x00
     }
     // Command 0x80-0xFF: Set DDRAM Address
     else if ((hexVal & 0x80) === 0x80) {
-      // Decode R/C from DDRAM command for UI state only
       const address = hexVal & 0x7F;
+
       const row = address < 0x40 ? 0 : 1;
-      const col = address % 40; // Use 40 as max address in DDRAM for calculation
+      const internalDDRAM_Col = address < 0x40 ? address : address - 0x40;
 
       setCursorRow(row);
-      setCursorCol(col);
-    }
+      setCursorCol(internalDDRAM_Col);
 
+      // Automatically scroll the view to ensure the cursor is visible
+      const newOffset = autoScrollDdramOffset(internalDDRAM_Col, state.ddramOffset);
+      setDdramOffset(newOffset);
+    }
     // Add other command logic here...
   };
 
   const sendCommand = (hexCode) => {
     const hexVal = toInt(hexCode);
     addLog(`Sending Command: ${toHexStr(hexVal)}`);
-    processCommand(hexVal); // Route to internal command processor
+    processCommand(hexVal);
   };
 
 
@@ -1922,7 +1972,6 @@ export const useLcdSim = () => {
   const handleEnPulse = () => {
     setEnState(true);
     addLog("Pulse: EN (High -> Low)");
-    // In a full sim, the command/data would be read HERE on the falling edge (High->Low)
     setTimeout(() => { setEnState(false); }, 200);
   };
 
@@ -1933,19 +1982,20 @@ export const useLcdSim = () => {
 
   const handleSend = () => {
     if(!state.inputValue) return;
-    // In a full sim, this would parse inputValue and send as data (RS=1)
     addLog(`Sending ${state.inputFormat}: '${state.inputValue}'...`);
     setInputValue("");
   };
 
   const handleCellClick = (row, col) => {
-    const hexCommand = getDDRAMCommand(row, col);
-    addLog(`Cursor set to: R${row}, C${col}`);
+    // Map the clicked visible column (0-15) to the internal DDRAM column
+    const ddramCol = state.ddramOffset + col;
+
+    const hexCommand = getDDRAMCommand(row, ddramCol);
+    addLog(`Cursor set to: R${row}, C${ddramCol} (Internal DDRAM Address)`);
     sendCommand(hexCommand);
   };
 
   const handleConfigChange = ({ newConfig, changedProp, commands }) => {
-    // Update config states
     setBusWidth(newConfig.busWidth);
     setLineCount(newConfig.lineCount);
     setEntryMode(newConfig.entryMode);
@@ -1966,7 +2016,7 @@ export const useLcdSim = () => {
   return {
     state: state,
     setters: {
-      setGpio, setInputFormat, setInputValue, setBacklight, // Exposed simple setters
+      setGpio, setInputFormat, setInputValue, setBacklight, setDdramOffset
     },
     handlers: {
       addLog, sendCommand, handleConfigChange, handleCellClick,
@@ -1981,26 +2031,26 @@ export const useLcdSim = () => {
 
 import { useState } from 'react';
 
-// ASCII for space character
 const ASCII_SPACE = 32;
+const DDRAM_WIDTH = 40; // DDRAM is 40 cells wide
 
 /**
  * Hook to initialize and manage all primary state variables for the LCD simulation.
- * @returns {object} State object containing all getters and setters.
  */
 export const useLcdState = () => {
   const [logs, setLogs] = useState(["> Initializing LCD...", "> Mode set to 4-Bit.", "> Backlight turned ON."]);
-  const [gpio, setGpio] = useState({ rs: true, rw: false });
+  // FIX: Start in Command Write Mode (RS=0, R/W=0)
+  const [gpio, setGpio] = useState({ rs: false, rw: false });
   const [enState, setEnState] = useState(false);
   const [dataBus, setDataBus] = useState([0, 0, 0, 0, 1, 1, 0, 0]);
   const [inputValue, setInputValue] = useState("");
   const [inputFormat, setInputFormat] = useState("Hex");
   const [backlight, setBacklight] = useState("ON");
 
-  // DDRAM: Initialize 16x2 with ASCII space (32)
+  // DDRAM: Initialized to 40 columns
   const [lcdRows, setLcdRows] = useState({
-     row1: Array(16).fill(ASCII_SPACE),
-     row2: Array(16).fill(ASCII_SPACE)
+     row1: Array(DDRAM_WIDTH).fill(ASCII_SPACE),
+     row2: Array(DDRAM_WIDTH).fill(ASCII_SPACE)
   });
 
   // Configuration States
@@ -2009,11 +2059,15 @@ export const useLcdState = () => {
   const [entryMode, setEntryMode] = useState('Left to Right (Inc)');
   const [displayVisible, setDisplayVisible] = useState('Display OFF');
   const [cursorStyle, setCursorStyle] = useState('Hidden');
+
   const [cursorRow, setCursorRow] = useState(0);
-  const [cursorCol, setCursorCol] = useState(0);
+  const [cursorCol, setCursorCol] = useState(0); // DDRAM column (0-39)
+
+  // FIX: DDRAM Display Offset starts at 0 (meaning visible area = DDRAM addresses 0-15)
+  const [ddramOffset, setDdramOffset] = useState(0);
 
   return {
-    state: { logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows, busWidth, lineCount, entryMode, displayVisible, cursorStyle, cursorRow, cursorCol },
-    setters: { setLogs, setGpio, setEnState, setDataBus, setInputValue, setInputFormat, setBacklight, setLcdRows, setBusWidth, setLineCount, setEntryMode, setDisplayVisible, setCursorStyle, setCursorRow, setCursorCol }
+    state: { logs, gpio, enState, dataBus, inputValue, inputFormat, backlight, lcdRows, busWidth, lineCount, entryMode, displayVisible, cursorStyle, cursorRow, cursorCol, ddramOffset },
+    setters: { setLogs, setGpio, setEnState, setDataBus, setInputValue, setInputFormat, setBacklight, setLcdRows, setBusWidth, setLineCount, setEntryMode, setDisplayVisible, setCursorStyle, setCursorRow, setCursorCol, setDdramOffset }
   };
 };

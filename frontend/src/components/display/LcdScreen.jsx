@@ -36,6 +36,7 @@ const LcdScreen = ({
   const endIndex = ddramOffset + VISIBLE_WIDTH;
 
   // Slice the 40-cell DDRAM data to show only the visible 16 cells
+  // If data isn't 40 cells (e.g., initial state before modules loaded), fall back to 16.
   const r1 = row1Data?.slice(startIndex, endIndex) || Array(VISIBLE_WIDTH).fill(32);
   const r2 = row2Data?.slice(startIndex, endIndex) || Array(VISIBLE_WIDTH).fill(32);
 
