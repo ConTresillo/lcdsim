@@ -3,6 +3,7 @@
 import { useLcdState } from './useLcdState';
 import { toInt, toHexStr, getFunctionSetCommand, getDDRAMCommand } from '../utils/LcdParser';
 import { executeClearDisplay } from '../utils/LcdLogic';
+import { parseInputToAsciiCodes, executeDataWrite } from '../utils/DataLogic'; // <-- NEW IMPORT
 
 export const useLcdSim = () => {
   const { state, setters } = useLcdState();
@@ -24,6 +25,8 @@ export const useLcdSim = () => {
   const autoScrollDdramOffset = (internalDDRAM_Col, currentOffset) => {
       let newOffset = currentOffset;
 
+      // ... (implementation remains the same) ...
+
       // 1. Cursor moved off the RIGHT edge of the visible window
       if (internalDDRAM_Col >= currentOffset + VISIBLE_WIDTH) {
           // Shift the window right to align the new column to the right edge
@@ -42,6 +45,34 @@ export const useLcdSim = () => {
       return newOffset;
   };
 
+  // --- CORE DDRAM WRITE HELPER (Handles memory update, cursor and scrolling) ---
+
+  const writeCodes = (codes) => {
+      let tempState = { ...state };
+
+      codes.forEach(asciiCode => {
+          // 1. Write the code and get the next logical cursor position
+          const result = executeDataWrite(tempState, asciiCode);
+
+          // 2. Update the internal DDRAM display data
+          setLcdRows(result.newLcdRows);
+
+          // 3. Update cursor position
+          tempState.cursorCol = result.newCursorCol;
+          setCursorCol(result.newCursorCol);
+
+          // 4. Update cursor row (just in case future logic changes the row, though not expected here)
+          tempState.cursorRow = result.newCursorRow;
+          setCursorRow(result.newCursorRow);
+
+          // 5. Calculate and set the new DDRAM scroll offset
+          const newOffset = autoScrollDdramOffset(result.newCursorCol, tempState.ddramOffset);
+          tempState.ddramOffset = newOffset;
+          setDdramOffset(newOffset);
+      });
+  }
+
+
   // --- COMMAND PROCESSOR ---
 
   const addLog = (msg) => setLogs(prev => [...prev.slice(-4), `> ${msg}`]);
@@ -53,7 +84,7 @@ export const useLcdSim = () => {
       setLcdRows(executeClearDisplay());
       setCursorRow(0);
       setCursorCol(0);
-      setDdramOffset(0); // FIX: Resets visible window to start at DDRAM address 0x00
+      setDdramOffset(0);
     }
     // Command 0x80-0xFF: Set DDRAM Address
     else if ((hexVal & 0x80) === 0x80) {
@@ -65,7 +96,6 @@ export const useLcdSim = () => {
       setCursorRow(row);
       setCursorCol(internalDDRAM_Col);
 
-      // Automatically scroll the view to ensure the cursor is visible
       const newOffset = autoScrollDdramOffset(internalDDRAM_Col, state.ddramOffset);
       setDdramOffset(newOffset);
     }
@@ -94,8 +124,25 @@ export const useLcdSim = () => {
   };
 
   const handleEnPulse = () => {
+    // EN Pulse acts as the final trigger for a write/read operation.
+    // Assuming WRITE operation (RS=1, RW=0) is what triggers data printing from input.
+    if (state.gpio.rs === true && state.gpio.rw === false) {
+
+        // 1. Convert DataBus state (array of 8 bits) to ASCII Code (0-255)
+        const binaryString = state.dataBus.map(bit => bit).join('');
+        const asciiCode = parseInt(binaryString, 2);
+
+        addLog(`Manual Write: DataBus ${binaryString} -> ASCII ${asciiCode}`);
+
+        // 2. Use the single code write logic
+        writeCodes([asciiCode]);
+
+    } else {
+        // Non-write operations (Read or Command)
+        addLog(`EN Pulse received. RS=${state.gpio.rs}, RW=${state.gpio.rw}. (No data operation executed)`);
+    }
+
     setEnState(true);
-    addLog("Pulse: EN (High -> Low)");
     setTimeout(() => { setEnState(false); }, 200);
   };
 
@@ -106,13 +153,24 @@ export const useLcdSim = () => {
 
   const handleSend = () => {
     if(!state.inputValue) return;
-    addLog(`Sending ${state.inputFormat}: '${state.inputValue}'...`);
+
+    const { inputValue, inputFormat } = state;
+
+    // 1. Parse the input string into a list of ASCII codes
+    const asciiCodes = parseInputToAsciiCodes(inputValue, inputFormat);
+
+    if (asciiCodes.length > 0) {
+        addLog(`Input Send: Processed ${asciiCodes.length} codes for DDRAM write.`);
+        writeCodes(asciiCodes); // Use the batch write helper
+    } else {
+        addLog(`Error: Could not parse input '${inputValue}' as ${inputFormat}.`);
+    }
+
     setInputValue("");
   };
 
   const handleCellClick = (row, col) => {
-    // Map the clicked visible column (0-15) to the internal DDRAM column
-    // DDRAM address = current DDRAM offset + visible column index
+    // Map the clicked visible column (0-15) to the internal DDRAM address
     const ddramCol = state.ddramOffset + col;
 
     const hexCommand = getDDRAMCommand(row, ddramCol);
